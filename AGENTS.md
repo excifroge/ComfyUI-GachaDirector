@@ -3,8 +3,8 @@
 This file is written for an AI coding assistant that has been asked to explain, change or extend this
 project. It gives the background that is not obvious from reading one file at a time: how the parts fit
 together, which names are contracts, what ComfyUI and the model do that will surprise you, and how to check
-your work. The user manual is [README.md](README.md) ([中文](README_ZH.md), [日本語](README_JA.md)); what it
-says is not repeated here.
+your work. The user guide is [docs/GUIDE.md](docs/GUIDE.md) ([中文](docs/GUIDE_ZH.md), [日本語](docs/GUIDE_JA.md)), and
+`README.md` (with `README_ZH.md`, `README_JA.md`) is the repository's front page; what they say is not repeated here.
 
 ## 1. What this project is
 
@@ -34,8 +34,7 @@ Design goals, in priority order. When two pull apart, the earlier one wins.
    together without the model), continuation from the tail of a clip (which the model's own documentation defines), and face
    refine, which regenerates the region a face is in and no other pixel. There is no whole-clip refine
    pass, no upscale-and-resample, no per-shot re-render. This is a design rule, not a check: nothing stops
-   a user from naming a rendered file as a source clip, and the README says how to upscale-and-resample
-   that way by hand. What a second pass over a whole clip does was measured (section 13): nothing at the
+   a user from naming a rendered file as a source clip and resampling it at a larger size by hand. What a second pass over a whole clip does was measured (section 13): nothing at the
    clip's own size, a clearer picture at a larger one for the price of a render at that size. There
    is no button for it.
 5. **One clip per node.** A clip is one generation window; longer pieces are chained by continuation.
@@ -57,7 +56,7 @@ through `comfy_execution.graph_utils.GraphBuilder`, no pip dependencies beyond C
 | `vendor/` | two upstream files, byte for byte, with their hashes in `vendor/UPSTREAM.json`. Never edit |
 | `web/` | the panel: plain ES modules served by ComfyUI, no build step, no framework |
 | `example_workflows/` | **generated** by `templates/make_workflows.py` |
-| `docs/` | the pictures the README files show. `docs/zh`, `docs/ja`, `docs/en` hold the same thirteen screenshots each, one set per README: twelve of the panel and `node.jpg` of the node on the canvas. They are taken by a script (section 9) and are retaken when the panel changes. Two figures of renders serve all three languages, `modes.jpg` (one clip per way of driving the model) and `example-edit.jpg` (the worked example), each with a looping animation of the same clips (`modes.webp`, `example-edit.webp`, 12 fps): they change only if those clips are rendered again. The footage in them is credited in `NOTICE`; a picture from any other source needs its licence checked and a line there |
+| `docs/` | the user guide (`GUIDE.md`, `GUIDE_ZH.md`, `GUIDE_JA.md`) and the pictures it and the README files show. `docs/zh`, `docs/ja`, `docs/en` hold the same thirteen screenshots each, one set per language: twelve of the panel and `node.jpg` of the node on the canvas. They are taken by a script (section 9) and are retaken when the panel changes. Looping animations serve all three languages: `modes.webp` (six sample clips side by side, one per way of driving the model), `example-edit.webp` (the worked example, source beside result) and `reel-*.webp` (stretches of the feature reel: the steps through the panel, a shot swapped for another take, a seam inside a long take). People are shown clips that play, not strips of frames. The footage in them is credited in `NOTICE`; a picture from any other source needs its licence checked and a line there |
 | `templates/make_workflows.py` | the generator of the example workflows |
 | `tests/` | Python tests, three checks run with Node (JS/Python parity, the run tracker, the panel's material helpers), a driver for a headless browser with one flow through the Edit page, three measurement scripts |
 | `tests/_parity_fixtures.json` | **generated**, git-ignored |
@@ -1020,7 +1019,7 @@ Of the browser only the Edit page's flow is automated. Verify other panel change
 scenario for `shot.mjs` (it can load a workflow, click, type, reload and take screenshots; see its
 header): queue takes, pick, composite, refine a face, open the Output page; and load both example
 workflows. Such scenarios were used while the package was written (a pool of takes made through the
-panel, a join of picks from several takes, a face refine, the README's screenshots in three
+panel, a join of picks from several takes, a face refine, the documentation's screenshots in three
 languages); they are not part of the shipped directory, and neither are the scripts the numbers of
 section 13 were measured with.
 What the package itself has for measuring is `tests/measure_seam_range.py` and `tests/shot.mjs`.
@@ -1085,7 +1084,7 @@ changes every signature, which resets recorded timings once.
 
 **Add a built-in preset.** `gd_presets.BUILTIN_PRESETS` and `web/gd_presets_doc.js` `BUILTIN_PRESETS` (same
 order), the list of ids in `tests/test_schema.py`, a row `run.note.<id>` in `web/gd_i18n.js` (its
-English column equal to the note), regenerate fixtures and example workflows, README. A
+English column equal to the note), regenerate fixtures and example workflows, the user guide. A
 store that already holds presets keeps its own list: workflows saved before the change do not gain the
 new preset. A preset whose model is `turbo` fails to run unless `model_turbo` is wired.
 
@@ -1131,8 +1130,8 @@ if it cannot be expressed. Then `gd_compile` (what the planner is told), `gd_h3.
 in `test_expand.py` asserting node kinds and wiring, and optionally a recipe button.
 
 **Change panel text.** `web/gd_i18n.js` only, all three columns, in words a user of the panel would use
-(design goal 6). README files quote panel text: update them, and retake the screenshots in `docs/` that
-show it. `ui_edit_flow.mjs` expects some Chinese labels.
+(design goal 6). The user guides and the README files quote panel text: update them, and retake the
+screenshots in `docs/` that show it. `ui_edit_flow.mjs` expects some Chinese labels.
 
 **Explain a control.** Not on the page. What a control is for is a tooltip: `tip(target, text)` in
 `web/gd_ui.js`, or the `hint` argument of `labeled()` and `section()` there and of the Edit page's own

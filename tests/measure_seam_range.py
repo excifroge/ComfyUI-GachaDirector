@@ -30,7 +30,7 @@ The ratio is forgiving in two ways that the numbers do not show: a dissolve, a b
 freeze lowers a step as well as a good join does, and a take that jumps by itself hides a
 jump of the composite at that frame. Look at the pictures too.
 
-This is where the numbers of the seam range in the README come from. A composite with a
+This is how the numbers of the seam range in AGENTS.md (section 13) are measured. A composite with a
 given range is made in the panel (drag the ends of the seam's bar on the Generate page), or
 from a document whose key "x_free_latents" names the latent frames to free ("17-19"; the
 time mask reads it and nothing else does). The --plain run is the same join with a latent

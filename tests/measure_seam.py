@@ -7,7 +7,7 @@ from one frame to the next around the cut, for a plain cut of the two takes and 
 composite, against the takes' own average frame-to-frame change. A plain cut between takes
 that differ shows up as a jump well above the ordinary motion; a repaired seam should not.
 
-This is where the composite numbers in the README come from. Needs PyAV and NumPy (both
+This is how the composite numbers in AGENTS.md (section 13) are measured. Needs PyAV and NumPy (both
 ComfyUI dependencies); run it with ComfyUI's Python.
 """
 
