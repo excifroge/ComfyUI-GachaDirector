@@ -137,6 +137,29 @@ const two = { shots: [{ id: "a", length: 68, text: "" }, { id: "b", length: 56, 
         [[clip, "clip", "b", "first"], [play, "audio", "b", "first"], [p, "image", "b", "last"]].sort());
   check("the next id is free", freeId(d, "anchors"), "k4");
 }
+{
+  // a video a shot carries on from is taken from its end, however it came to be that
+  const x = draft(normalize({ prompt: two }));
+  const added = addVideo(x, "a", "long.mp4", "continue", { frames: 300, frames24: 240, audio: true });
+  const switched = setUse(x, addVideo(x, "b", "ntsc.mp4"), "continue", 1, { frames: 100 });
+  check("its last 22 frames, counted at 24 fps when the server gave that count",
+        x.anchors.map((a) => [a.id, a.clip_start, a.clip_length, a.with_audio]),
+        [[added, 218, 22, true], [switched, 78, 22, false]]);
+  const y = draft(normalize({ prompt: two }));
+  addVideo(y, "a", "short.mp4", "continue", { frames24: 9 });
+  addVideo(y, "b", "unprobed.mp4", "continue");
+  check("a video shorter than that, or one nothing is known of, from its first frame",
+        y.anchors.map((a) => a.clip_start), [0, 0]);
+  // 17 frames before the clip ends: a clip held there is cut to 5, and those are the last 5
+  const z = draft(normalize({ family: "reference",
+    prompt: { shots: [{ id: "a", length: 107, text: "" }, { id: "b", length: 17, text: "" }] },
+    videos: [{ file: "run.mp4", shot: "b" }] }));
+  addVideo(z, "b", "long.mp4", "continue", { frames24: 240 });
+  setUse(z, "v1", "continue", 1, { frames24: 124 });
+  check("where the clip ends sooner than 22 frames on, the end of the video all the same",
+        normalize(z).anchors.map((a) => [a.file, a.frame, a.clip_start, a.clip_length]),
+        [["long.mp4", 107, 235, 5], ["run.mp4", 107, 119, 5]]);
+}
 
 // ---------------------------------------------------------------- cuts
 {

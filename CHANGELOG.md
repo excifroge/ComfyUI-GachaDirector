@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.1
+
+- **New nodes and example workflows default to two takes per batch.** Existing workflows
+  keep any explicitly saved batch size. A new preset starts with the batch size of the
+  active one.
+- **Videos added or switched to Video continuation now default to their last 22 frames,
+  counted at 24 fps, matching the Starting setup shortcut.** They used to take the first
+  22. When fewer than 22 frames remain in the generated clip after the shot starts, the
+  tail is shortened to a valid guide length that fits. Videos shorter than the selected
+  tail section start at frame 0; files with unknown frame counts also fall back to
+  frame 0. Existing continuation start frames are preserved.
+
 ## 2.1.0
 
 The panel reorganised around how a clip is thought of: shots, and what each shot is made

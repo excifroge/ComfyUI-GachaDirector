@@ -15,7 +15,9 @@
 // A piece of material is found by id everywhere here. Positions in the lists change as
 // soon as something is added or removed; ids do not.
 
-import { FPS, cleanName, material, mentionRe, referenceSource, resolvedFrame } from "./gd_doc.js";
+import {
+  FPS, cleanName, guideClipLength, material, mentionRe, referenceSource, resolvedFrame,
+} from "./gd_doc.js";
 
 // ---------------------------------------------------------------- mentions
 // A person reads and types "@name"; the text is stored with "@{id}". The two forms have to
@@ -167,6 +169,23 @@ export function addImage(x, shotId, file, use = "subject", at = 1) {
   return id;
 }
 
+/** How many frames of a video a continuation is given to start from, where there is room. */
+const CONTINUE_FRAMES = 22;
+
+/** The anchor that continues a video: its last frames, held at the start of a shot of `x`.
+ *  As many of them as normalize leaves a clip there: 22, fewer when the clip ends sooner
+ *  than that, so that what is kept is still the end of the video. `info` is what the
+ *  server knows of the file ({frames24, frames}); a file it has not probed is taken from
+ *  its first frame, and the row's start frame shows it. */
+function clipFor(x, shotId, file, info, withAudio) {
+  const frames = info ? (info.frames24 || info.frames || 0) : 0;
+  const shot = x.prompt.shots.find((s) => s.id === shotId);
+  const room = shot && shot.start >= 0 && x.derived ? x.derived.frame_count - shot.start : CONTINUE_FRAMES;
+  const length = guideClipLength(Math.min(CONTINUE_FRAMES, room));
+  return { kind: "clip", file, at: "first", offset: 0,
+           clip_start: Math.max(0, frames - length), clip_length: length, with_audio: !!withAudio };
+}
+
 export function addVideo(x, shotId, file, use = "motion", info = null) {
   if (use === "motion" || !shotId) {
     const id = freeId(x, "videos");
@@ -174,8 +193,7 @@ export function addVideo(x, shotId, file, use = "motion", info = null) {
     return id;
   }
   const id = freeId(x, "anchors");
-  x.anchors.push({ id, shot: shotId, kind: "clip", file, at: "first", offset: 0,
-                   clip_start: 0, clip_length: 22, with_audio: !!(info && info.audio) });
+  x.anchors.push({ id, shot: shotId, ...clipFor(x, shotId, file, info, info && info.audio) });
   return id;
 }
 
@@ -190,8 +208,9 @@ export function addAudio(x, shotId, file, use = "sound") {
   return id;
 }
 
-/** Change what an item is for. `at` is the frame inside the shot, for use "frame". */
-export function setUse(x, id, use, at = 1) {
+/** Change what an item is for. `at` is the frame inside the shot, for use "frame"; `info`
+ *  is what the server knows of a video's file, for use "continue". */
+export function setUse(x, id, use, at = 1, info = null) {
   const hit = find(x, id);
   if (!hit) return id;
   const [key, i, it] = hit;
@@ -217,10 +236,7 @@ export function setUse(x, id, use, at = 1) {
     return id;
   }
   if (VIDEO_USES.includes(use)) {
-    if (use === "continue") {
-      return move("anchors", { kind: "clip", file: it.file, at: "first", offset: 0,
-                               clip_start: 0, clip_length: 22, with_audio: !!it.audio });
-    }
+    if (use === "continue") return move("anchors", clipFor(x, it.shot, it.file, info, it.audio));
     return move("videos", { file: it.file, audio: !!it.with_audio, desc: it.desc || "" });
   }
   if (use === "play") return move("anchors", { kind: "audio", file: it.file, at: "first", offset: 0 });

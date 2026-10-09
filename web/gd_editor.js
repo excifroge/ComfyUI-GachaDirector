@@ -181,7 +181,7 @@ export function createEditor(host) {
       const s = presets();
       const id = `preset${Date.now().toString(36)}`;
       s.presets.push({
-        id, name: t("h.newTaskName", s.presets.length + 1), note: "", takes: 1,
+        id, name: t("h.newTaskName", s.presets.length + 1), note: "", takes: activePreset(s).takes,
         params: normalizeParams(activePreset(s).params),
         history: { runs: [], count: 0, last_seconds: 0, last_at: 0, avg_seconds: 0, signature: "" },
       });

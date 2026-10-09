@@ -676,10 +676,8 @@ export function createEditPage(host) {
       Object.assign(x.source, { video: name, as_reference: true, as_latent: false, role: "edit" });
     })));
     add("continue", () => pick("clips", (name) => apply((x) => {
-      const info = mediaInfo(name);
       startOver(x, "");                  // either model continues a clip
-      const id = addVideo(x, firstShot(x), name, "continue", info);
-      x.anchors.find((it) => it.id === id).clip_start = Math.max(0, framesOf(name) - 22);
+      addVideo(x, firstShot(x), name, "continue", mediaInfo(name));
     })));
     return tip(bar, t("edit.recipesNote"));
   }
@@ -882,7 +880,7 @@ export function createEditPage(host) {
         // "a frame in between": where the playhead is when it is in this shot, else the middle
         const here = shot ? currentFrame() - shot.start : 0;
         const at = shot && here > 0 && here < shot.length - 1 ? here : Math.floor((shot ? shot.length : 2) / 2);
-        const id = setUse(x, it.id, v, at);
+        const id = setUse(x, it.id, v, at, kind === "video" ? mediaInfo(it.file) : null);
         if (v === "voice") {
           const a = x.audio.find((m) => m.id === id);
           if (a && !a.subject && x.subjects.length) a.subject = x.subjects[0].id;

@@ -50,13 +50,13 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/excifroge/ComfyUI-GachaDirector
 ```
 
-重启 ComfyUI，日志里出现 `Gacha Director v2.1.0: 10 nodes registered` 就是装好了。模型文件按 [ComfyUI 官方教程](https://docs.comfy.org/tutorials/video/minimax/minimax-h3) 准备。
+重启 ComfyUI，日志里出现 `Gacha Director v2.1.1: 10 nodes registered` 就是装好了。模型文件按 [ComfyUI 官方教程](https://docs.comfy.org/tutorials/video/minimax/minimax-h3) 准备。
 
 ## 快速开始
 
 1. 打开示例工作流 [GachaDirector_Base.json](example_workflows/GachaDirector_Base.json)，给加载器选好模型文件；没有加速 LoRA 就删掉它的加载器。
 2. 点节点上的 **打开 Gacha Director**。示例里已经有两个镜头，可以直接用，也可以在**剪辑**页改写内容、添加素材。
-3. 在**生成**页把**每批候选数**设为 2，点生成按钮。
+3. 在**生成**页点生成按钮，默认一批生成两条候选。
 4. 两条候选出来后，在每个镜头下给满意的那条点**选用**，再点**合成**。
 
 ![从画布上的节点到第一批候选](docs/reel-flow.webp)

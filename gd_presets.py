@@ -73,7 +73,7 @@ DEFAULT_PARAMS: dict[str, Any] = {
 
 #: How many candidates a "generate" from the takes page queues. Lives beside ``params``:
 #: it is not a property of one render, so it must not enter the timing signature.
-DEFAULT_TAKES = 1
+DEFAULT_TAKES = 2
 MAX_TAKES_PER_BATCH = 12
 
 BUILTIN_PRESETS = [

@@ -48,7 +48,7 @@ export const DEFAULT_PARAMS = {
 
 // How many candidates a "generate" from the takes page queues. It sits beside `params`:
 // it is not a property of one render, so it must not enter the timing signature.
-export const DEFAULT_TAKES = 1;
+export const DEFAULT_TAKES = 2;
 export const MAX_TAKES_PER_BATCH = 12;
 
 export const BUILTIN_PRESETS = [

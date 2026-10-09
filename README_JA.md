@@ -50,13 +50,13 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/excifroge/ComfyUI-GachaDirector
 ```
 
-ComfyUIを再起動し、ログに `Gacha Director v2.1.0: 10 nodes registered` と表示されればインストール完了です。モデルファイルは[ComfyUI公式チュートリアル](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)に従って用意します。
+ComfyUIを再起動し、ログに `Gacha Director v2.1.1: 10 nodes registered` と表示されればインストール完了です。モデルファイルは[ComfyUI公式チュートリアル](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)に従って用意します。
 
 ## クイックスタート
 
 1. [GachaDirector_Base.json](example_workflows/GachaDirector_Base.json)を開き、各ローダーでモデルファイルを選び、高速化LoRAがない場合はそのローダーを削除します。
 2. ノードの **Gacha Director を開く** をクリックします。サンプルには2ショットが設定済みなので、そのまま使うか、「編集」で内容や素材を変更できます。
-3. 「生成」で **テイク数** を2に設定し、生成ボタンをクリックします。
+3. 「生成」で生成ボタンをクリックします。初期設定では、1回につき2本のテイクを生成します。
 4. 2本のテイクが完成したら、各ショットで気に入ったテイクの **採用** をクリックし、**合成** を実行します。
 
 ![キャンバス上のノードから最初のテイク生成までの流れです。](docs/reel-flow.webp)

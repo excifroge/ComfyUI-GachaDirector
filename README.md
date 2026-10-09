@@ -50,13 +50,13 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/excifroge/ComfyUI-GachaDirector
 ```
 
-Restart ComfyUI; `Gacha Director v2.1.0: 10 nodes registered` in the log confirms installation. Prepare the model files using the [official ComfyUI tutorial](https://docs.comfy.org/tutorials/video/minimax/minimax-h3).
+Restart ComfyUI; `Gacha Director v2.1.1: 10 nodes registered` in the log confirms installation. Prepare the model files using the [official ComfyUI tutorial](https://docs.comfy.org/tutorials/video/minimax/minimax-h3).
 
 ## Quick start
 
 1. Open [GachaDirector_Base.json](example_workflows/GachaDirector_Base.json) and select the model files in the loaders; delete the acceleration LoRA loader if you do not have that LoRA.
 2. Click **Open Gacha Director** on the node. The example already has two shots: use them as they are, or change their descriptions and add media on **Edit**.
-3. On **Generate**, set **Batch takes** to 2 and click the generate button.
+3. On **Generate**, click the generate button. By default, each batch produces two takes.
 4. Once both takes are ready, click **Pick** for your preferred take under each shot, then click **Join**.
 
 ![From the canvas node to the first batch of takes.](docs/reel-flow.webp)

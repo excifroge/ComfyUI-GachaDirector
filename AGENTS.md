@@ -1189,8 +1189,8 @@ The compiled prompt is painted on its own (`paintCompiled`). A row of buttons go
 **Rename a contract name (section 5).** Do not, unless the old name keeps working: add the new one, read
 both, write the new one.
 
-**Release.** `__version__` in `__init__.py`, `version` in `pyproject.toml`, `CHANGELOG.md`, regenerate the
-example workflows, run section 8.
+**Release.** `__version__` in `__init__.py`, `version` in `pyproject.toml`, the log line the three READMEs
+quote under Installation, `CHANGELOG.md`, regenerate the example workflows, run section 8.
 
 ## 12. Conventions
 

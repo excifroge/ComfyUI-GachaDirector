@@ -18,7 +18,7 @@ For your first run, open the base workflow:
 1. Select files in the model, text encoder, video VAE, and audio VAE loaders. Select the file in the acceleration LoRA loader too; delete that loader if you do not have the LoRA.
 2. Click **Open Gacha Director** on the node. Leave the two example shots and their prompts unchanged for now.
 3. On **Project**, confirm that the preset is `Standard`.
-4. On **Generate**, set **Batch takes** to 2 and click **Generate 2 take(s)**. Each take contains the entire clip.
+4. On **Generate**, click **Generate 2 take(s)**. Each take contains the entire clip.
 5. When generation finishes, click **Pick** for your preferred take under each shot, then **Join** and **View output**.
 
 > [!IMPORTANT]
