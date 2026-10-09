@@ -1,17 +1,19 @@
 # Gacha Director
 
-**A director's console for MiniMax H3.** A ComfyUI custom node: one node on the canvas opens a tabbed panel for text-to-video, image-to-video, first/last-frame generation, multi-keyframe generation, continuation, reference generation and video editing.
+**A director's console for MiniMax H3.** One ComfyUI canvas node opens a tabbed panel for text-to-video, image-to-video, first/last-frame generation, multi-keyframe generation, continuation, reference generation and video editing.
 
 Gacha in the name refers to random card draws in games: generate N takes at once, pick one per shot, then join them into a final clip, like a 10-pull.
 
 English | [日本語](README_JA.md) | [中文](README_ZH.md)
 
-![A generated clip of four shots: one shot is swapped for another take, the other three stay as they are](docs/hero.webp)
+[![A generated clip of four shots: one shot is swapped for another take, the other three stay as they are](docs/hero.webp)](https://github.com/excifroge/ComfyUI-GachaDirector/releases/download/v2.1.0/GachaDirector_reel.mp4)
 
-The full feature reel (70 s) and a promo made with the panel (15 s) are attached to the [latest release](https://github.com/excifroge/ComfyUI-GachaDirector/releases/latest).
+**A user-friendly UI for an all-in-one production workflow.** Built for **Edit + multi-shot Gacha Generate**: define shots and material on the Edit page, then generate takes in batches, pick one per shot and join the picks into a final clip on the Generate page. Suited to iterative tuning at scale and batch production.
+
+Videos with sound: [feature reel (70 s)](https://github.com/excifroge/ComfyUI-GachaDirector/releases/download/v2.1.0/GachaDirector_reel.mp4) · [promo made with Gacha Director (15 s)](https://github.com/excifroge/ComfyUI-GachaDirector/releases/download/v2.1.0/GachaDirector_promo.mp4). The animations are silent previews.
 
 > [!NOTE]
-> **AI-Friendly**: [AGENTS.md](AGENTS.md) at the repository root is a handoff document for your AI. Give it to your own AI so it can explain the project and make changes.
+> **AI-Friendly**: [AGENTS.md](AGENTS.md) at the repository root is a handoff document for your AI to understand, explain and modify the project.
 
 <details>
 <summary>Contents</summary>
@@ -19,6 +21,7 @@ The full feature reel (70 s) and a promo made with the panel (15 s) are attached
 - [What it solves](#what-it-solves)
 - [Supported uses](#supported-uses)
   - [Sample clips](#sample-clips)
+  - [Made with it: a 15-second promo](#made-with-it-a-15-second-promo)
 - [Installation](#installation)
 - [Quick start](#quick-start)
   - [A complete example: turning live-action footage into a snowy scene](#a-complete-example-turning-live-action-footage-into-a-snowy-scene)
@@ -39,27 +42,27 @@ The full feature reel (70 s) and a promo made with the panel (15 s) are attached
 
 </details>
 
-![The Edit page: one card per shot, with the shot description on the left and its pictures, videos and sounds on the right; two links between cards set how picture and sound follow the preceding shot](docs/en/edit-shots.jpg)
+![Edit page: shot descriptions on the left, pictures, videos and sounds on the right; links between cards control picture and sound joins](docs/en/edit-shots.jpg)
 
 ## What it solves
 
-MiniMax H3 provides a set of official templates, each with a different node graph. Switching uses means switching graphs; comparing seeds, finding out how long a set of settings takes, or taking a section from each of two results all require you to build the setup yourself.
+MiniMax H3 provides a separate node graph for each use. Switching uses requires switching graphs; comparing seeds, measuring run times or combining sections from two results requires additional setup.
 
-Gacha Director brings these into one node, organized around five things:
+Gacha Director brings these tasks into one node, organized around five features:
 
-- **A tabbed workbench.** Like an editing application, its pages follow the workflow: Project → Edit → Generate → Post → Output.
-- **Material organized by shot.** Each shot has a card containing what happens in it and the pictures, videos and sounds it uses. Material is numbered and declared to the model automatically during generation; you do not have to write those declarations in the prompt.
-- **Run presets that record their cost.** A preset is a named answer to "how much am I willing to spend on this run?" Three are built in: `Draft` (draft), `Standard` (standard) and `Final` (final). Each records its measured run times separately for each clip length.
-- **Takes → picks → final clip.** Queue N whole-clip takes at once, pick one for each shot, then click "Join" to produce the final clip. If every shot uses the same take, it is output as the final clip without regenerating it. Where takes change at a cut, they are spliced without generating anything again; where they change within one long take, only the seam is regenerated.
-- **You decide whether to cut or keep the shot continuous.** On the Edit page, set whether one shot cuts to another or carries on as the same shot. Both the instructions sent to the model and the way the final clip is joined follow that choice. At each cut, separately choose whether sound switches with the picture or continues from the take used before the cut.
+- **A tabbed workbench.** Pages follow an editing workflow: Project → Edit → Generate → Post → Output.
+- **Material organized by shot.** Each card holds a shot description and its pictures, videos and sounds. Material is numbered and declared to the model automatically during generation.
+- **Run presets that record their cost.** Named presets manage the compute budget: `Draft` (draft), `Standard` (standard) and `Final` (final). Each records measured run times by clip length.
+- **Takes → picks → final clip.** Queue N whole-clip takes, pick one per shot, then click "Join". Using one take throughout outputs it without regeneration. Changes at cuts are spliced directly; changes within a long take regenerate only the seam.
+- **You decide whether to cut or keep the shot continuous.** Set cuts or continuity on the Edit page; both the model prompt and final joins follow that choice. At cuts, independently choose whether sound switches with the picture or continues from the preceding take.
 
-The panel uses everyday terms: resolution is width × height, length is seconds, and a picture is "the first frame of this shot." The panel calculates what the model needs: labels, declarations, a pixel budget and denoise adjusted for the schedule.
+The panel uses familiar units and descriptions: width × height, seconds, and "the first frame of this shot". It calculates model labels, declarations, the pixel budget and schedule-adjusted denoise.
 
-The node does not reimplement any sampling logic. At run time it expands into a set of ComfyUI core nodes; the core conditioning nodes, sampler and VAE do the actual work.
+The node reuses ComfyUI core sampling logic. At run time it expands into core conditioning nodes, samplers and VAEs.
 
 ## Supported uses
 
-H3's various "modes" are combinations of a few mechanisms. Gacha Director has you add material to shots and choose a **use** for each item rather than select a mode. The material determines the use. A read-only tag on each shot card ("text to video", "first / last frame", "reference to video"…) shows what the current material adds up to.
+H3's "modes" combine several mechanisms. Gacha Director derives the setup from the material and its **use**, without a mode selector. Each shot card has a read-only tag ("text to video", "first / last frame", "reference to video"…) showing the current combination.
 
 | What you add (material · use) | Resulting use | Model | Core nodes in the expansion |
 |---|---|---|---|
@@ -77,13 +80,15 @@ H3's various "modes" are combinations of a few mechanisms. Gacha Director has yo
 | Source video · "Video continuation" | Continue from the end of this reference segment | ref2va | Same as above |
 | Source video · "Source redraw" | Low-strength re-rendering / re-rendering only part of the clip | Either | `VAEEncode` + `LTXVConcatAVLatent`; add `SetLatentNoiseMask` when re-rendering only part |
 
-These can be combined: for example, a source video to edit, plus a subject and a last-frame picture, is a valid clip setup.
+Uses can be combined, for example editing a source video with a subject reference and a last-frame picture.
 
-In the Edit page's "Clip" section, the buttons after "Starting setup" provide shortcuts to these combinations. Selecting one replaces the existing material with what that use requires and keeps the prompt (a mention of material that was replaced becomes its plain name). The clip length and aspect ratio are also kept, except that "Video edit" follows the source video's aspect ratio and sets the clip to the longest valid length that fits within the source (up to 362 frames). For example, a 120-frame source gives a 107-frame clip, leaving 13 frames unused; a note above the timeline shows how many remain. To cover the whole source, change the length to 124; see the source video section on the [Edit page](#edit-page) for the trade-off. This can be undone.
+The "Starting setup" buttons in "Clip" on the Edit page configure these combinations. They replace existing material and keep the prompt; references to replaced material become plain names. Length and aspect ratio stay unchanged except for "Video edit", which follows the source ratio and uses the longest valid length within it (up to 362 frames). A 120-frame source gives a 107-frame clip with 13 unused frames, shown above the timeline. Set the length to 124 to cover the whole source; see the source video section on the [Edit page](#edit-page) for the trade-off. The operation can be undone.
+
+![Animation: four input types — subject reference, video editing, dialogue, first/last frames](docs/reel-inputs.webp)
 
 ### Sample clips
 
-Each row shows one final clip for a different use, rendered with the `Standard` preset (standard model, 20 steps, 864×480), with 6 frames sampled at equal intervals. All use seed 7. Each use was rendered once, with no selection among results.
+Each row shows a different use with `Standard` (standard model, 20 steps, 864×480), seed 7 and 6 evenly spaced frames. Each was rendered once, without selection.
 
 ![Sample clips for different uses: text-to-video, image-to-video, first/last-frame generation, subject reference, reference-based continuation and ControlNet](docs/modes.jpg)
 
@@ -91,7 +96,15 @@ The same six clips playing side by side (reduced to 12 fps):
 
 ![Animation of the six sample clips](docs/modes.webp)
 
-"Reference-based continuation" and "ControlNet" use the source video from [the example below](#a-complete-example-turning-live-action-footage-into-a-snowy-scene): continuation carries on from its last frame; ControlNet uses its contours, with the visuals determined by the prompt. The video-editing sample is in that example.
+"Reference-based continuation" and "ControlNet" use the source video from [the example below](#a-complete-example-turning-live-action-footage-into-a-snowy-scene): the former continues from its last frame; the latter uses its contours, with visuals set by the prompt. The video-editing sample is in that example.
+
+### Made with it: a 15-second promo
+
+Four shots, each starting from a crayon-style keyframe. The slot machine's reels stop on frames of the promo itself.
+
+[![Animation: the 15-second promo, a mascot at a slot machine labelled GACHA DIRECTOR](docs/promo.webp)](https://github.com/excifroge/ComfyUI-GachaDirector/releases/download/v2.1.0/GachaDirector_promo.mp4)
+
+Added in post: only the pictures on the reels in the close-up. Everything else, sound included, is as generated by the model. The call at the start is a recording given to the model.
 
 ## Installation
 
@@ -104,33 +117,35 @@ Requires ComfyUI **0.39 or newer** (for `MiniMaxH3AddGuide`, H3 noise masks and 
    ```
 2. Restart ComfyUI. `Gacha Director v2.1.0: 10 nodes registered` in the log confirms installation.
 
-There are no extra pip dependencies or dependencies on other custom-node packages. Prepare the model files as described in the [official ComfyUI tutorial](https://docs.comfy.org/tutorials/video/minimax/minimax-h3). The first time face refinement is used, the kornia bundled with ComfyUI automatically downloads about 400 KB of face detector weights.
+No extra pip dependencies or other custom-node packages are required. Prepare models using the [official ComfyUI tutorial](https://docs.comfy.org/tutorials/video/minimax/minimax-h3). On first use, face refinement downloads about 400 KB of detector weights through ComfyUI's bundled kornia.
 
 ## Quick start
 
-`example_workflows/` contains two workflows with the same nodes and connections, different models, and a starter prompt in each:
+`example_workflows/` contains two workflows with identical nodes and connections, different models and a starter prompt in each:
 
 | Workflow | Model | Suitable for |
 |---|---|---|
 | `GachaDirector_Base.json` | fl2va | Text-to-video, image-to-video, first/last-frame generation, multi-keyframe generation, continuation |
 | `GachaDirector_Reference.json` | ref2va | Reference generation, video editing, multi-keyframe generation, continuation |
 
-Open either one, point the four loaders and the acceleration LoRA loader to your own model files, then:
+Open either workflow, assign model files to the four loaders and acceleration LoRA loader, then:
 
 1. Click **Open Gacha Director** on the node.
 2. On the **Edit** page, write what happens in each shot. Add material with "+ Picture / + Video / + Sound" on the right of its card, or use the buttons after "Starting setup" in "Clip".
-3. Select a preset on the **Project** page (`Draft` / `Standard` / `Final`). It shows the frame size and how long that preset takes to run.
+3. Select a preset on the **Project** page (`Draft` / `Standard` / `Final`) to see its frame size and expected time.
 4. Click "Generate N take(s)" on the **Generate** page (set N under "Batch takes" on the Project page), or use ComfyUI's own run button to render one clip.
 
 > [!IMPORTANT]
-> The `Draft` preset uses the fast model, connected to the node's `model_turbo` input. The example workflows already connect the model through an acceleration LoRA. If you do not have that LoRA, delete its loader node (leave `model_turbo` unconnected) and either avoid `Draft` or change `Draft`'s model setting to "standard model".
+> `Draft` uses the node's `model_turbo` input. Example workflows connect a model with an acceleration LoRA. Without that LoRA, remove its loader (leave `model_turbo` unconnected) and either avoid `Draft` or set its model to "standard model".
+
+![Animation: from the canvas node to the first batch of takes](docs/reel-flow.webp)
 
 ### A complete example: turning live-action footage into a snowy scene
 
-The source video is 124 frames of live-action footage: two people talking on a bridge in the open movie *Tears of Steel*. The goal is to change the season to a snowy winter while keeping the people, action and camera work unchanged.
+The source is 124 frames of two people talking on a bridge in the open movie *Tears of Steel*. Keep the people, action and camera work, and change the season to a snowy winter.
 
 1. Open `GachaDirector_Reference.json` and click **Open Gacha Director** on the node.
-2. In "Clip" on the **Edit** page, click "Video edit" after "Starting setup" and select the source video. The clip length becomes 124 frames and the aspect ratio follows the source. "Source usage" defaults to "Video edit", and "Source redraw" is off; leave both as they are.
+2. In "Clip" on the **Edit** page, click "Video edit" after "Starting setup" and select the source. Length becomes 124 frames and aspect ratio follows the source. Keep the defaults: "Source usage" is "Video edit" and "Source redraw" is off.
 3. Fill in four text fields. Describe the desired changes in the shot and what to retain under "Keep/change description" for the source video:
 
    | Field | Content |
@@ -140,7 +155,7 @@ The source video is 124 frames of live-action footage: two people talking on a b
    | "Keep/change description" under the source video's "More" | `the people, their motion and timing, the camera and the composition of <Video 1> are kept; only the season and the weather change` |
    | Ambient sound | `Muffled winter air, soft wind, snow hissing on stone.` |
 
-   A source video used for editing is `<Video 1>` in the prompt; you can write that directly. "Clip summary" can be left empty: the task type and the opening sentence "The target video is an edited version of `<Video 1>`" are added automatically.
+   Reference the editing source directly as `<Video 1>`. Leave "Clip summary" empty: the task type and "The target video is an edited version of `<Video 1>`" are added automatically.
 4. Click "Final prompt" to see the text actually sent to the model:
 
    ```text
@@ -159,7 +174,7 @@ The source video is 124 frames of live-action footage: two people talking on a b
    non_diegetic_music: N/A
    ```
 
-5. On the **Project** page, first select `Draft` to check the direction (4 steps, about 2.5 minutes), then switch to `Standard` if it is right (20 steps, 864×480, about 12.5 minutes). These times were measured on a single GPU with 24 GB of VRAM.
+5. Check the direction with `Draft` on the **Project** page (4 steps, about 2.5 minutes), then use `Standard` (20 steps, 864×480, about 12.5 minutes). Timed on one GPU with 24 GB of VRAM.
 
 ![Video-editing example. Top: source video; bottom: final clip from the Standard preset](docs/example-edit.jpg)
 
@@ -183,54 +198,54 @@ The same comparison in motion (left: source video; right: final clip):
 | `sampler` | SAMPLER, optional | When connected, overrides the preset's sampler. |
 | `sigmas` | SIGMAS, optional | When connected, overrides the preset's scheduler and step count. |
 
-The node shows only four things: the preset selector, `seed` (with ComfyUI's built-in "control after generate"), read-only metrics (frame size, frame count, steps and measured run time for this preset at this clip length), and the button that opens the panel (with the UI language switch beside it). Everything else is in the panel.
+The node has a preset selector, `seed` (with ComfyUI's "control after generate"), read-only metrics (frame size, frames, steps and measured time for the current preset and length), and the panel button with a language switch. Other settings are in the panel.
 
 **Outputs**: `frames`, `audio`, `fps`, `frame_count`, `source_frames`, `latent`, `positive`, `model`, `prompt` (the prompt actually sent to the model), `run_report` (a summary of this run).
 
 ## Panel
 
-Pages show only names and values. Explanations are in tooltips: hover over a parameter, button or heading for half a second to see them.
+Pages show names and values. Hover over a parameter, button or heading for half a second to see its tooltip.
 
 ### Project page
 
 ![The Project page: presets on the left; resolution, frame rate, length and expected time at the top right](docs/en/project.jpg)
 
-The preset list is on the left. Each entry shows the frame size it produces for the current clip, its step count and model. The selected preset is on the right, with four numbers at the top: **Resolution** (width × height), **Frame rate** (24 fps, "fixed"), **Length** and **Expected time** (the measured average for this preset at this length).
+The list on the left shows each preset's frame size, steps and model for the current clip. The selected preset is on the right: **Resolution** (width × height), **Frame rate** (24 fps, "fixed"), **Length** and **Expected time** (the measured average for this preset and length).
 
 | Setting | Description |
 |---|---|
-| Resolution | A set of sizes, shown as the actual width × height at the current clip's aspect ratio. A preset stores a pixel budget rather than width and height: the aspect ratio belongs to the clip, so the same preset works for landscape and portrait. "Standard (official template)" is the official template size (864×480 at 16:9); "Native (training resolution)" is the training size (1344×768). |
-| Resolution · "custom…" | Enter width and height directly, for example for a square frame. The model accepts only multiples of 32; other values show the nearest size that will be used (720 × 720 becomes 736 × 736). Width or height outside 256 to 2048 pixels is flagged in red and cannot be applied. A custom size also changes this clip's aspect ratio to match; choosing another size from the list afterwards keeps that ratio. |
+| Resolution | Actual width × height at the clip's aspect ratio. Presets store a pixel budget; the clip sets the ratio, so one preset works for landscape and portrait. "Standard (official template)" is 864×480 at 16:9; "Native (training resolution)" is 1344×768. |
+| Resolution · "custom…" | Enter width and height, for example for a square frame. Values must be multiples of 32; otherwise the nearest actual size is shown (720 × 720 becomes 736 × 736). Values outside 256 to 2048 pixels are flagged in red and cannot be applied. Custom dimensions update the clip's ratio, which stays unchanged when selecting another size. |
 | Steps | 20 is the official default; the fast model uses 4 or 8. |
 | Model | "standard model", or "fast model (turbo)" (the node's `model_turbo` input). |
 | Batch takes | How many takes one press of Generate queues. |
-| Reference material size | How far reference videos are scaled down, and whether reference pictures are scaled down. This affects the reference model's speed, not the final clip's resolution. Reference videos take part in every step, making this the biggest factor in speed when a clip has one. |
+| Reference material size | Sets reference video scaling and whether reference pictures are scaled down. Affects reference-model speed, not final resolution. Videos participate in every step, making their size the main speed factor when using video references. |
 | Advanced | Pixel count (MP), Guidance (CFG), Sampler, Scheduler, Schedule shift · picture / Schedule shift · sound (default 12 / 3), and Save VRAM. Official defaults are CFG 1, `res_multistep` / `simple`. |
 
-The preset's timing history is below. For takes, run time is recorded against the preset and clip length **at queue time** (at execution start, if the page was reloaded while the take was waiting); runs launched with ComfyUI's own run button use those **at execution start**. If preset parameters change during a run, that run's timing is not recorded. By default, changing parameters clears the old records, since they no longer describe those settings. What is timed is this node's own share of a run: a loader reading a model from disk, nodes wired after it and other director nodes in the same workflow are not counted. Joining and face refinement are not timed: they are different jobs from generating a clip (measured on the same clip and preset: about 128 seconds for joining, about 100 seconds for a take), and recording them would skew the preset's timings.
+Timing history is below. Takes use the preset and length **at queue time**, or at execution start if the page was reloaded while waiting; ComfyUI's run button uses those **at execution start**. Changes to preset parameters during a run prevent recording; changing parameters clears old records by default. Only this node is timed, excluding model loading, downstream nodes and other director nodes. Joining and face refinement are different jobs and are excluded to avoid skewing generation estimates (same clip and preset: about 128 seconds for joining, 100 seconds for a take).
 
 > [!NOTE]
-> `Draft` and `Final` do not produce the same clip. Changing the frame size changes the noise, so the same seed gives different results. Use `Draft` to judge whether the prompt and material are going in the right direction, rather than to choose a seed.
+> `Draft` and `Final` produce different clips: changing size changes the noise, even with the same seed. Use `Draft` to check the prompt and material, not to select a seed.
 
 ### Edit page
 
 ![The upper part of the Edit page: preview, timeline and clip settings](docs/en/edit-timeline.jpg)
 
-The preview, timeline and playback controls are at the top. A line above the timeline shows the clip length (seconds, frames and frame rate), frame size, step count, shot count and the generation type determined by the current material. Below are the clip, shared material and shots, in that order.
+The top has a preview, timeline and playback controls. Above the timeline are length (seconds, frames, frame rate), frame size, steps, shot count and the generation type derived from the material. Below are clip settings, shared material and shots.
 
 **Clip**
 
-- **Model**: Reference model (ref2va) or Base model (fl2va). The reference model accepts people, videos and sounds as reference material; the base model's conditioning inputs are text and the first and last frames of the whole clip. Material held on frames (in-between pictures, videos set to "Video continuation", and audio played as it is) is added separately and works with either model. The page explains when material does not match the model.
-- **Length**: Press 5 / 10 / 15 seconds, or enter a number of seconds; it snaps to a length the model can use (so what you typed may change a little; the frame count is shown beside it). The core node gives a trained range of roughly 5 to 15 seconds (124 to 362 frames). Longer values are accepted, but fall outside the range the model was trained on.
+- **Model**: Reference model (ref2va) accepts people, videos and sounds as references; Base model (fl2va) accepts text and the whole clip's first/last frames. Pinned material (intermediate pictures, "Video continuation" videos, unchanged audio) is added separately and works with either model. The page flags incompatible material.
+- **Length**: Select 5 / 10 / 15 seconds or enter seconds; the value snaps to a valid length, with frames shown beside it. The core node gives a trained range of about 5 to 15 seconds (124 to 362 frames). Longer values are accepted but exceed that range.
 - **Aspect ratio**: "Source aspect ratio", or specify a ratio.
 
 ![Shared material on the Edit page: overall description, ambient sound, and pictures, videos and sounds available to every shot](docs/en/edit-shared.jpg)
 
-**Shared material**: put material available to every shot here. On the left are Overall description (the style and scene of the whole clip), Ambient sound, Music and Clip summary; on the right are shared pictures, reference videos and sounds. The source video is at the bottom. Material that appears in only one shot belongs in that shot's card. The reference model accepts up to 9 pictures, 3 videos, 3 audio clips and 12 files in total per clip; a line at the top of this section shows the current usage.
+**Shared material**: material for all shots. The left has Overall description (style and scene), Ambient sound, Music and Clip summary; the right has shared pictures, reference videos and sounds, with the source video at the bottom. Put shot-specific material on its card. Reference-model limits are 9 pictures, 3 videos, 3 audio clips and 12 files per clip; usage is shown at the top.
 
-**Shots**: divide the clip into sections, each with a card. On the left, describe what happens in that shot; on the right, add its pictures, videos and sounds. These correspond to `[Shot 1]`, `[Shot 2] At 00:02.833, …` in the prompt and are not generated separately. Shots with neither text nor their own subjects or references are omitted from the prompt; only those included in the prompt count toward its numbering. A navigation strip to the left of the cards is divided in proportion to shot length; click a section to jump to that shot.
+**Shots**: each card has a description on the left and pictures, videos and sounds on the right. Cards correspond to `[Shot 1]`, `[Shot 2] At 00:02.833, …` in the prompt, not separate generations. Shots without text, subjects or references are omitted and not numbered. Click the length-proportional navigation strip on the left to jump to a shot.
 
-Each material item has three things: a thumbnail, a name and a **use**. Its use determines what it means to the model:
+Each item has a thumbnail, name and **use**, which defines how the model uses it:
 
 | Material | Use | Meaning |
 |---|---|---|
@@ -244,58 +259,58 @@ Each material item has three things: a thumbnail, a name and a **use**. Its use 
 | | Sound reference | Follows its timbre or musical style (reference model). |
 | | Original audio | This sound plays as it is from the start of the shot in the final clip. |
 
-The small triangle on the right of a material row opens "More settings": subject kind, description, short name and multiple pictures; how closely material is kept ("Fully preserved", "Mostly preserved", "Attribute transfer", "Loose reference"); which stretch of a video to take; and so on.
+The triangle on a material row opens "More settings": subject kind, description, short name, multiple pictures, retention ("Fully preserved", "Mostly preserved", "Attribute transfer", "Loose reference") and video ranges.
 
-**Media library.** The "Media library" button at the right of the top bar opens a floating window from any page. It can be moved and resized, stays in place when switching pages, and remembers its position and size in the browser.
+**Media library.** "Media library" at the top right opens a floating window from any page. Move or resize it; it stays in place across pages and stores its position and size in the browser.
 
 ![The media library window: Imported and Generated categories, type filters and custom folders; material can be dragged onto a shot's material area](docs/en/library.jpg)
 
 - **Two categories**: *Imported* lists files in ComfyUI's `input` folder; *Generated* lists generated files in `output`, newest first. Both can be filtered by "Pictures" / "Videos" / "Sounds" and searched by file name.
-- **Folders**: create folders and subfolders on the left. Double-click to rename; drag items onto a folder to file them, or onto "Unfiled" to remove them from it. These are virtual folders for organising the library: files on disk are neither moved nor renamed, so other workflows can still find them. The organisation is stored in ComfyUI's user data and shared across workflows.
-- **Using material**: drag items from the window onto a shot card's material area (adds them to that shot) or shared material (available to every shot). Hold Ctrl or Shift to select and drag several items together. The "+ Picture", "+ Video" and "+ Sound" buttons open the same window filtered to suitable types; click an item to add it.
-- **Importing from your computer**: click "Import from this computer..." or drop files into the window. Imported items go into the open folder. Files can also be dropped directly onto a shot's material area, shared material or the source video area (a dropped video becomes the source). Files are copied to `input` through the same upload path as ComfyUI's own uploader; ComfyUI renames new files when names collide. Dropping elsewhere on the panel does nothing and does not pass the files through to the ComfyUI canvas behind it.
+- **Folders**: create folders and subfolders on the left; double-click to rename. Drag material into a folder to file it, or onto "Unfiled" to remove it. Virtual folders do not move or rename files, so other workflows remain valid. The folder list is stored in ComfyUI user data and shared across workflows.
+- **Using material**: drag onto a shot's material area for that shot, or shared material for all shots. Use Ctrl or Shift for multi-selection. "+ Picture", "+ Video" and "+ Sound" open the same window filtered by type; click an item to add it.
+- **Importing from your computer**: click "Import from this computer..." or drop files into the window to add them to the open folder. You can also drop onto shot, shared or source material areas (a video in the source area becomes the source). ComfyUI's upload mechanism copies files to `input` and renames new files on collision. Drops elsewhere are ignored and do not reach the canvas behind the panel.
 
-The media library for "Video continuation" also lists generated final clips, so continuation can use a previous result directly. The "Video continuation" recipe places the selected video's last 22 frames at the start of the first shot. The new clip's first 22 frames are held to the previous clip's tail (very close, but not pixel-identical), so a 124-frame clip contains 102 frames (4.25 seconds) of new content. Trim the overlapping 22 frames when joining the clips.
+"Video continuation" can use generated final clips from the library. The recipe pins the last 22 frames to the first shot's first 22 frames (close to the original, not pixel-identical). A 124-frame clip therefore has 102 new frames (4.25 seconds). Trim the overlapping 22 frames when joining clips.
 
 ![Typing @ in a prompt opens a list of material you can name](docs/en/edit-mention.jpg)
 
-**Montage or long take: separate links for picture and sound.** Two chain icons between each pair of shot cards set how the lower shot follows the one above. The left controls picture, the right controls sound. Linked icons are bright; unlinked icons are dim. Click to toggle.
+**Montage or long take: separate links for picture and sound.** Two chain icons between cards set how the lower shot follows the preceding shot: picture on the left, sound on the right. Linked is bright, unlinked dim; click to toggle.
 
 Picture:
 
 - *Unlinked = cut (montage)*: cuts to another shot. It becomes a new `[Shot N] At <time>` section in the prompt.
-- *Linked = continuous (long take)*: continues the same shot without a cut; the sections only let you describe and pick them separately. Consecutive sections become one `[Shot]` in the prompt, with their descriptions joined into a paragraph in order (dialogue stays on separate lines). The official prompt format has times for cuts, but no notation for when something happens within a shot. Events within a long take therefore follow the order of the text; the model decides their exact timing.
+- *Linked = continuous (long take)*: keeps one shot continuous; sections allow separate descriptions and picks. They form one `[Shot]` paragraph in order, with dialogue on separate lines. The official format specifies cut times but not event times within a shot: text sets the order, the model sets the timing.
 
 Sound (only meaningful at cuts):
 
 - *Unlinked = switches with picture*: after a cut, uses the sound from the take picked for the new picture. This is the default.
-- *Linked = continuous*: after a cut, keeps using the sound from the take used before the cut, even when the picture switches takes. With several consecutive sound links enabled, sound continues from the earliest take.
+- *Linked = continuous*: keeps the preceding take's sound across the cut while picture changes. Consecutive links carry sound from the earliest take.
 - When picture is linked (a long take), sound always continues with it. The sound link is shown as linked and locked.
 
-Sound links do not affect generation: each take still contains picture and sound for the whole clip. They only decide which take supplies the sound for each frame of the final clip, so the difference is audible only when **different** takes are picked on either side of a cut. They do not change the picture's cut frame.
+Sound links set the audio source for each final frame, without changing generation or picture cut times. Each take still contains the whole clip's picture and sound. A difference is audible only with **different** takes across a cut.
 
-A new boundary defaults to a cut in a clip generated from scratch, and to continuous in a clip with a source video (the source is already continuous there). On the timeline, a cut is a solid diamond; a section boundary within a long take is a hollow diamond with a horizontal line. In the left navigation strip, a section that continues the previous one has a dashed boundary with it.
+New boundaries default to cuts when generating from scratch and continuity with a source video. Timeline cuts are solid diamonds; long-take boundaries are hollow diamonds with a horizontal line. Dashed boundaries in the left navigation indicate continuity.
 
-Older workflows do not have these two settings. When one is opened, the shots of a clip with a source video are treated as one long take (such clips always had their takes joined by regenerating the seam, so nothing changes for them), and the shots of a clip generated from scratch as cuts. Sound always switches with picture, as before.
+Older workflows lack these settings: clips with a source video use long takes, preserving the previous seam-regeneration behaviour; clips from scratch use cuts. Sound still switches with picture.
 
 ![The two links between shot cards on the Edit page: picture on the left, sound on the right](docs/en/edit-join.jpg)
 
-**No manual numbering.** Material labels (`<Subject 1>`, `<Picture 2>`, `<Video 1>`…) and declarations such as "this picture is the first frame of shot N" are added automatically during generation. To say who does what, type `@` in the prompt and pick a material name from the list (the shot's own material comes first; Up/Down and Enter also work), or click the `@` button on a material row to insert its name at the cursor. Renaming, changing a use or removing material updates the prompts too. Subjects, reference videos and sound references belonging to a shot but not named in its description get an automatic sentence, such as "it appears in this shot". First/last-frame pictures already have their own declarations; a character's voice is declared with its subject. "Final prompt" shows the assembled text and refreshes when the content changes.
+**No manual numbering.** Labels (`<Subject 1>`, `<Picture 2>`, `<Video 1>`…) and first-frame declarations are automatic. Type `@` to choose material, with shot-specific items first; Up/Down and Enter work. A row's `@` button inserts the name at the cursor. Renames, use changes and removals update the prompt. Unmentioned shot subjects, reference videos and sound references get an appearance statement; first/last pictures have dedicated declarations, and voices are declared with their subjects. "Final prompt" shows the text and refreshes on changes.
 
-Material held on frames follows its shot: after dragging a boundary, "First frame" is still that shot's first frame; when inserting or deleting a boundary, the material stays on its original frame. Its timeline markers are read-only.
+Pinned material follows its shot: "First frame" stays at the shot's start when moving boundaries. Inserting or deleting a boundary leaves it on its original frame. Timeline markers are read-only.
 
-**Source video** (optional, at the bottom of shared material): the source plate for the whole clip. Select it from the input directory or use a generated final clip. "Source usage" has four choices:
+**Source video** (optional, below shared material): the whole clip's source plate, from the input directory or a generated final clip. "Source usage" has four choices:
 
 - *Video edit* (reference model, default): the official video-editing approach; the model sees it as `<Video 1>`.
 - *Video continuation* / *Motion/camera reference*: also sent as `<Video 1>`, with a different role. The reference is the part of the source video beginning at the start frame and matching the clip's length. To continue from another part, change the start frame under "More".
 - *Source redraw*: used only as the starting frames.
 
-"Source redraw", under "More" (the base model has no reference channel, so this is its only use for a source video): starts from the original video's frames, adds noise and generates over them. The percentage beside "Change amount" is the calculated share of starting noise (see [Measurements](#measurements)); to keep the original composition, it must be well below 100%. This is required to redo only part of the clip.
+"Source redraw" under "More" adds noise to the source frames and redraws them; this is the base model's only source-video use. "Change amount" shows the calculated starting-noise percentage (see [Measurements](#measurements)); retaining composition requires well below 100%. Enable it for partial redraw.
 
-If the source video, counted from the start frame, is shorter than the clip, its last frame is held for the missing part. The final clip also comes to a stop at the end (in a test with 4 frames missing, the final clip gradually stopped over its last roughly 6 frames).
+A source shorter than the clip from its start frame is padded with its last frame, making the final clip stop at the end (4 missing frames led to a gradual stop over roughly the last 6 frames).
 
 > [!NOTE]
-> Video editing does not require "Source redraw". In tests, using the source video only to edit it and starting from scratch already followed its composition, movement and camera work. Adding repainting over the original (Change amount: 0.85) produced almost the same clip, only more slowly.
+> Video editing does not require "Source redraw". In tests, editing with the source as a reference already preserved composition, movement and camera work. Enabling redraw (Change amount: 0.85) gave almost the same clip, more slowly.
 
 **Partial redraw** (shown only with "Source redraw" enabled): choose which [cells](#time-cells) to regenerate; the rest are kept as they are. The sound in those cells is kept too, when the source has a sound track.
 
@@ -306,7 +321,7 @@ If the source video, counted from the start frame, is shorter than the clip, its
 @girl says quietly: I have been looking for you.
 ```
 
-`@girl` is the subject named girl, with or without pictures. For a voice that does not belong to a subject, write `@voice(a warm elderly male voice) says cheerfully: Good morning!`. Before the colon is the delivery; after it are the spoken words. English is the default; for another language, add a tag such as `[Japanese]` immediately after `@girl` or `@voice(…)`. The model receives the official guide's format: `<Subject 1> (S1) says quietly, <d>[English] I have been looking for you.</d>` (`<Subject 1>` when the subject has pictures; a text-only subject appears there as its description or short name). The same speaker keeps the same `(S1)` across shots. Writing `@girl says "…"` (without a colon) is not treated as dialogue; "Final prompt" shows a reminder. To have a subject speak in a specific voice, add an audio clip, choose "Character voice" and select that subject. The audio becomes its voice reference; the words still come from the prompt.
+`@girl` names the subject girl, with or without pictures. For an unassigned voice, use `@voice(a warm elderly male voice) says cheerfully: Good morning!`. The colon separates delivery from spoken words. English is default; add `[Japanese]` or another language tag after `@girl` or `@voice(…)`. The model receives `<Subject 1> (S1) says quietly, <d>[English] I have been looking for you.</d>`: `<Subject 1>` for pictured subjects, a description or short name for text-only subjects. A speaker keeps `(S1)` across shots. `@girl says "…"` lacks the required colon and is flagged in "Final prompt". For a specific voice, add audio, choose "Character voice" and its subject. Audio supplies the voice; the prompt supplies the words.
 
 **Advanced** (collapsed at the bottom of the page):
 
@@ -319,61 +334,65 @@ If the source video, counted from the start frame, is shorter than the clip, its
 
 ![The Generate page: a pick for each shot, independently adjustable card sizes, and navigation on the left divided by shot length](docs/en/generate-shots.jpg)
 
-At the top is **Sequence preview**: it plays the picked section of each shot in order, without using the model. Unpicked shots show "Shot N · not picked" for their duration. Take changes within a long take are hard cuts in the preview; transitions are generated when joining. When a final clip is available ("Join" has completed and neither the picks nor seam settings have changed since), the preview plays that final clip. It is linked to the timeline below: the red playhead follows playback, dragging on the time ruler seeks the preview, and clicking a shot on the timeline scrolls to that shot's takes. Sound is off by default: the ♪ button on a transport is the sound switch, shared by every player in the panel. With it on, each section of the preview plays the sound of the take it comes from.
+![Animation: replace one shot in a four-shot clip with another take, then join the picks](docs/reel-swap.webp)
 
-![The seam range strip below the Generate page timeline: where takes change within a long take, a bar with draggable ends marks the range to regenerate](docs/en/generate-seam.jpg)
+**Sequence preview** plays the picks in order without the model. Unpicked shots show "Shot N · not picked" for their duration; changes within long takes are hard cuts until joining generates the transition. A current final clip (after "Join", with unchanged picks and seams) plays directly. The red playhead follows playback; drag the ruler to seek or click a shot to jump to its takes. Sound is off by default. All players share the ♪ switch; each preview section plays its take's sound when enabled.
 
-**Seam range strip.** When consecutive sections of a long take use different takes, a strip appears below the timeline with a bar at the seam. Joining regenerates the range marked by that bar; the rest of the picture comes from the picked takes.
+![Seam range strip: drag the bar ends to set regeneration around a take change within a long take](docs/en/generate-seam.jpg)
 
-- The default is **auto**: starts a little before the seam and ends at the end of the cell containing it. It targets at least 12 frames; the actual range is 12 to 21 frames, depending on where in its cell the seam falls. When the seam is exactly on a cell boundary, only the preceding 12 frames are regenerated; none from the following take are redrawn. Near the start of the clip or a long-take boundary, the range can be shorter. See [Time cells](#time-cells) for why it ends on a cell boundary.
-- Drag either end of the bar to set the range. The ends snap to the fine lines on the strip: latent-frame boundaries, five per cell, with intervals of 1 frame and four groups of 4 frames. Longer lines mark cell boundaries. The readout beside the bar shows how many frames are regenerated before and after the seam.
-- Amber indicates a range that may be less reliable: under 12 frames, or with its right end off a cell boundary (the next 1–2 retained frames can show measurable changes). Amber is a warning; joining is still allowed.
+![Animation: two takes within a long take, comparing a direct splice with seam regeneration](docs/reel-seam.webp)
+
+**Seam range strip.** Different picks in adjacent long-take sections show a range bar below the timeline. Joining regenerates that range; the rest uses the picks.
+
+- **auto** starts before the seam and ends at its cell boundary. It targets at least 12 frames; the actual 12 to 21 frames depend on position within the cell. At a cell boundary, only the preceding 12 frames are redrawn; none from the next take. Near clip or long-take boundaries, the range is shorter. See [Time cells](#time-cells).
+- Drag the ends to snap to latent-frame boundaries: five per cell, spaced by 1 frame and four groups of 4 frames. Long lines mark cell boundaries; the readout gives frames before and after the seam.
+- Amber warns of a range under 12 frames or ending off a cell boundary, where the next 1–2 retained frames show measurable changes. Joining remains available.
 - Double-click the bar to restore the automatic range. The range stays within the long take; the tooltip explains when a boundary shortens it.
-- "takes alike: N dB" beside the bar measures how close the two takes are over 8 frames on each side of the seam (PSNR on reduced-size frames). A red reading, below about 22 dB, indicates a large difference here and possible seam repair failure. This is only an advisory threshold and has not been calibrated (see [Measurements](#measurements)).
+- "takes alike: N dB" is PSNR over 8 frames on each side of the seam, measured on small frames. Below about 22 dB it turns red to warn that repair may fail. The threshold is advisory and uncalibrated (see [Measurements](#measurements)).
 - If two seam ranges overlap, click the small triangle above a seam to bring its bar to the front.
 - Seams already present in older workflows keep the previous range, one whole cell on each side, until dragged or double-clicked.
 
-1. **Generate N take(s)**: queues N whole-clip generations with incrementing seeds. Set N in "Batch takes" beside the button; it is the same setting as in the preset on Project. A live preview appears at the top during generation; interrupt it immediately if it is going wrong. Only this node and the output nodes wired after it run; other director nodes and unrelated save nodes in the workflow are left alone.
-2. **Pick**: each shot has a section, with a player on the left and every take's version of that shot on the right. Pick one per shot. Click a card to play it on the left. Below the player, "Apply to all" applies the take you are viewing to all shots, or you can delete it (a take is one generation of the whole clip, so deleting it removes it from every shot's pool; its file stays in the output directory). Cards wrap to fit the row; scroll down within the pool when there are more. Each shot has its own "Preview size" slider to the right of its heading; the minimum switches to a list. Cards and the player show the shot from that take's actual cut-in to its actual cut-out, rather than trimming at the requested frame numbers (the model's cuts can be several frames off; see [Measurements](#measurements)). A stationary card shows the middle of the shot; hovering plays it from the start. A narrow navigation strip on the left has one section per shot, with height proportional to shot length. Colors show status ("Picked" / "Has takes" / "No takes"); a red line marks the position on the timeline above. The strip scales with the window height; click a section to jump to that shot.
-3. **Final clip**: after every shot has a pick, this section shows "Join". Click it to produce the final clip as a separate file, listed on Output; afterwards, "View output" appears here. What the button does depends on the picks:
-   - Every shot uses the same take → outputs that take directly as the final clip, without using the model. It is re-encoded once, taking two or three seconds.
-   - Takes change only at cuts → the sections are spliced without passing through the model, taking a few seconds. Joins follow each take's **actual** cut frame, not the requested frame number. When the earlier shot's take cuts before the later shot's take does, the frames in between belong to neither shot and are removed, so the final clip may be a few frames shorter than the document; the other way round, there are frames on which both takes agree, the join is made there and the length stays. Afterwards, this section shows the actual length; "Join log" records how each cut was handled. By default, sound switches to the new take on the same frame as picture. At cuts with sound linked, it continues from the take used before the cut (the join log says `the sound stays with …`).
-   - Takes change within a long take → regenerates a short range around the seam, set in the strip described above. The rest, including sound, comes from the picked takes without being generated again, passing only through one encode/decode round trip (see [Known limitations](#known-limitations)). The regenerated range stays within that long take and does not touch any take's actual cuts. Set the regeneration strength on the [Post page](#post-page). Cuts in the same job are still spliced directly.
+1. **Generate N take(s)**: queue N whole-clip takes with incrementing seeds. "Batch takes" beside the button shares the Project preset setting. Live preview appears at the top; interrupt at any time. Only this node and downstream outputs run, excluding other director and unrelated save nodes.
+2. **Pick**: each shot has a player on the left and a take pool on the right. Pick one; click a card to play. "Apply to all" uses the viewed take throughout; deleting removes it from every pool but keeps its output file. Cards wrap and pools scroll vertically. Each shot has an independent "Preview size" slider; minimum gives a list. Playback uses actual cut-in/out frames rather than requested frames (see [Measurements](#measurements)). Cards show the middle frame and play from the shot's start on hover. The left navigator has one section per shot, proportional in height to length. Colors show "Picked" / "Has takes" / "No takes"; the red line follows the timeline. It scales with window height; click to jump.
+3. **Final clip**: once all shots have picks, "Join" produces a separate file listed on Output and shows "View output". Processing depends on the picks:
+   - One take throughout → output without the model, with one re-encode in two or three seconds.
+   - Changes only at cuts → splice directly in a few seconds. Joins use **actual** cuts. If the preceding take cuts earlier, intervening frames belonging to neither shot are removed, shortening the clip; otherwise join where both permit it, keeping the length. Actual length is shown afterwards; "Join log" records each cut. Sound follows picture by default, or continues from the preceding take when linked (`the sound stays with …`).
+   - Changes within a long take → regenerate the seam range. Other picture and sound use the picks with one encode/decode round trip (see [Known limitations](#known-limitations)). Ranges stay inside the long take and avoid all actual cuts. Set strength on the [Post page](#post-page); cuts in the same job are still spliced directly.
 
 > [!NOTE]
-> Takes have no "regenerate only this shot" operation. The model must compute the whole clip each time. Recomputing one shot costs as much as generating another take and uses generated frames as the starting point for another generation. To try again, generate another take. (Redoing only a few cells of a **source video** is a separate operation: "Partial redraw" on the Edit page.)
+> Takes have no "regenerate only this shot" operation. The model computes the whole clip: a single-shot retry costs as much as a new take and regenerates from generated frames. Retry with a new take. Redrawing part of a **source video** is a separate operation, "Partial redraw" on Edit.
 
-Shots separated by hard cuts can freely mix takes. Within a long take, the two takes must look alike at the seam; the strip's similarity reading measures this. Takes sharing a source video, or the same first, last and in-between frames, usually move alike and can be joined; seam regeneration can smooth the jump. This is not guaranteed: in one measured pair sharing a source video, the seeds gave the same scene very different lighting and colour, and none of the tested ranges and strengths joined them smoothly. Unconstrained text-to-video takes are different videos. Regenerating the seam cannot connect them, and the picture still jumps at some frame (see [Measurements](#measurements)).
+Hard cuts allow freely mixed takes. Long-take seams require similar pictures, measured by the strip. A shared source or identical first, last and intermediate frames usually gives similar motion, but is no guarantee. One measured pair had very different lighting and colour; no tested range or strength joined it smoothly. Unconstrained text-to-video takes are different videos and still jump after repair (see [Measurements](#measurements)).
 
-Takes record the clip length they were generated at: changing the length makes old takes unpickable. Takes also record how the clip was divided into shots at the time (where the cuts are, which shots form one long take). After the division changes, old takes can still be picked, but the Generate page marks them and says so: the cuts in them are still where they were then and will not move. For takes that follow the current division, generate again. A joined clip records which picks it used: changing the picks means the old joined clip is no longer shown as the final clip.
+Takes record their length and shot layout. A length change prevents old picks; layout changes leave them usable but flagged, since actual cuts do not move. Generate new takes for the new layout. Joined clips record their picks; changing picks stops the old join being shown as current.
 
 ### Post page
 
-What you can do after a final clip is ready, and how to view and save it.
+Joining, face refinement, preview and save settings.
 
 ![The Post page: how the final clip is joined, and seam settings](docs/en/post-join.jpg)
 
-**Joining**: joins the picked take for each shot into one clip. This section lists cuts to splice directly, seams within long takes to regenerate, and cuts where sound continues from the preceding take. Click "Join" here to run it; without seams to regenerate, the model is not used. When seams need regeneration, "Retained frames" shows how many frames in each shot will still come from its picked take. The remaining frames are within the regenerated ranges and will be replaced by new frames. A short section between two seams within a long take may be covered entirely; it is flagged in red as "No retained frames". A long take too short to contain the required range has an unrepairable seam, also flagged in red. The two settings below apply only to seams within long takes (both are grayed out when all take changes are at cuts):
+**Joining**: lists cuts, seams to regenerate and cuts with continuing sound. Click "Join"; without seams, no model runs. "Retained frames" counts each shot's picked frames; the rest are regenerated. Short sections between seams can be covered entirely and flagged "No retained frames" in red. A long take too short for its range is also flagged as unrepairable. The following settings apply only to long-take seams and are grayed out when all changes are at cuts:
 
 - *Seam range*: lists the number of frames regenerated before and after each seam. Set the range by dragging its ends in the strip below the [Generate page](#generate-page) timeline; it is read-only here.
-- *Seam strength*: 1 (default) regenerates the range from scratch. Lower values retain more of the original frames from the two takes. When redrawing two whole cells, 0.3 also smoothed the seam in one similar pair; with the automatic 12-frame range, 0.3 worked less well than 1 (see [Measurements](#measurements)). The calculated share of starting noise appears beside it. (With an external schedule connected to the node's `sigmas` input, strength has no effect.)
+- *Seam strength*: 1 (default) redraws from scratch; lower values retain more original picture. In one similar pair, 0.3 smoothed two whole cells, but 0.3 was less effective than 1 over the automatic 12 frames (see [Measurements](#measurements)). Starting-noise percentage is shown beside it. External `sigmas` overrides strength.
 
 ![The Post page: face refinement before and after, side by side, both zoomed in on the face](docs/en/post-face.jpg)
 
-**Face refine**: a face that is small in the frame gets few pixels and can blur or break down. This step crops the region around the main face in the final clip, regenerates it at a size where the face has enough room, then pastes it back. No pixels outside that region change. Sound comes from the final clip, and the clip before refinement is kept as it was. The two versions play side by side, with synchronized playback and frame stepping. Click either picture to zoom both into that position (as in the screenshot); click again to reset.
+**Face refine**: small faces have too few pixels and can blur or distort. Crop the main face region, regenerate at a larger size and paste it back. Pixels outside remain unchanged; keep the original clip and its sound. Before/after players synchronize playback and frame stepping. Click to zoom both to that point; click again to reset.
 
 - *Face reference*: choosing a person from the material uses their pictures as references for regeneration (reference model).
-- *Target shots*: defaults to "automatic (faces of about 24 to 80 px)". Smaller faces have too few pixels to retain detail when pasted back; larger faces are already clear, and regeneration only replaces them with another face. Click shot numbers to refine only those shots, regardless of face size. Shots without a detected face are left alone. If no shot qualifies, the run fails and the page explains why each shot was skipped.
+- *Target shots*: "automatic (faces of about 24 to 80 px)" by default. Smaller faces cannot retain detail; larger ones are already clear and redraws replace them. Select shot numbers to override size limits. Shots without faces stay unchanged; if none qualify, the run fails with per-shot reasons.
 - *Strength*: 85% by default. Below 70%, this model reconstructs almost the original picture, so the value is much higher than intuition suggests (see [Measurements](#measurements)).
 - Longer stretches where no face is found (the person turns away or leaves the frame) are not pasted back; a gap of a few frames is bridged, and processing resumes when the face returns.
-- Only one face per shot is processed: the one present longest. Different shots may select different people. "Face reference" only supplies reference pictures for regeneration and does not select the detected face. In clips with several people, use "Target shots" to keep only shots where that person is the main subject.
+- One face per shot: the longest-present face, which may be a different person in each shot. "Face reference" supplies images, not face selection. In multi-person clips, use "Target shots" to keep only shots led by the intended person.
 - Uses the active preset: the face region is generated as a square with the preset's pixel budget (`Standard` gives 640×640). Refinement takes about as long as generating a clip.
 
 **Live preview** and **Saving** (file name prefix, file format, video codec) apply to every run of this node and do not belong to a preset.
 
 ### Output page
 
-Reads this clip's run results from ComfyUI's history (the most recent 40 entries): clips from direct runs, joined final clips and face refinement results, each with its run report and the prompt sent to the model at the time. A final clip whose takes were only cut together, with nothing generated again, is labeled "Cut together (N shots; no regeneration)" and shows no steps or seed (that run generated no picture). Takes are not listed here; they are on the Generate page. After the clip's content (material, prompt or regenerated ranges) changes, old results are marked "The clip has changed since generation; this result is out of date.". Face refinement results are not marked here; the Post page says whether the last one still matches the clip. Changing only the preset or seed does not count. For joined final clips, regenerated ranges are not compared here; the Generate page marks a joined clip as stale when seam settings or picks change.
+Output lists this clip's direct runs, joins and face refinements from ComfyUI's latest 40 history entries, with reports and original prompts. Splice-only clips show "Cut together (N shots; no regeneration)" without steps or seeds. Takes stay on Generate. Material, prompt or redraw-range changes flag old results as "The clip has changed since generation; this result is out of date."; preset or seed changes do not. Face refinements are checked on Post, not flagged here. Joins ignore redraw ranges here; Generate marks changes to picks or seams.
 
 ## Time cells
 
@@ -381,7 +400,7 @@ H3's video VAE independently encodes blocks of 17 frames from frame 0, with the 
 
 A cell contains 5 latent frames: its first video frame occupies one, and the following 16 frames are grouped in sets of 4. The short final cell contains 1 + 4 video frames, or two latent frames. Masks operate on latent frames, so **the smallest unit that can be kept or regenerated independently is one latent frame (4 video frames; the first one in each cell holds only 1), not a cell**.
 
-Cells matter during encoding. Each cell is encoded independently and causally: later latent frames depend on earlier pictures in that cell, not on subsequent cells. This gives a measured rule (see [Measurements](#measurements)): **a regenerated range is best ended on a cell boundary**. If it ends inside a cell, the retained latent frames that follow in that cell were encoded from earlier pictures that have now been replaced, so they no longer match. In the tested pair of takes, the next 1–2 frames were 3–5 dB further from the original take, and a range extending only 1 frame into the next cell failed to close the seam. The range's starting point does not have this restriction. Decoding has no cell boundaries: the decoder reads 7 latent frames at once and blends 5 frames between adjacent windows. "Retained" therefore means "not regenerated", not "pixel-identical". Near a regenerated range, retained frames from two runs matched at only about 38 dB; the difference was not visible.
+Encoding is independent per cell and causal within it: later latents depend on earlier pictures, not subsequent cells. The measured rule is: **a regenerated range is best ended on a cell boundary** (see [Measurements](#measurements)). Ending inside a cell leaves later retained latents based on replaced pictures. In the tested pair, the next 1–2 frames lost 3–5 dB; extending 1 frame into the next cell failed to repair the seam. Starting points have no such restriction. Decoding reads 7 latent frames at once and blends 5 frames between windows, without cell boundaries. Retained means not regenerated, not pixel-identical: nearby retained frames matched at about 38 dB across two runs, with no visible difference.
 
 The timeline's cell strip, used for "Selected cells", selects whole cells. It appears only with "Source redraw", because only then can cells be "Kept" (every cell is redrawn when generating from scratch). Seam ranges within long takes are selected by latent frame; see the strip on the [Generate page](#generate-page). Montage cuts have no relation to cells: nothing is regenerated there.
 
@@ -390,20 +409,20 @@ The timeline's cell strip, used for "Selected cells", selects whole cells. It ap
 Structured mode follows MiniMax's two official prompt-writing guides:
 
 - **Base model**: three fields, `integrated_multimodal_description` / `overall_soundscape` / `non_diegetic_music`. With a first frame, last frame or both, the official fixed image-alignment sentence is prepended.
-- **Reference model, with material to declare**: six sections, `subject_definitions` / `summary` / `retention_analysis` / `detailed_description` / `overall_soundscape` / `non_diegetic_music`. The task types at the start of `summary` (`reference generation`, `video editing`, `video continuation`, `keyframe completion`, `audio reuse`, `audio reference`) are derived from the material's actual roles. You write the following sentence or two yourself ("Clip summary" in the panel). When a source video is used for editing or continuation, the official opening sentence is added automatically, so the field can be left empty. If it is still empty after automatic additions, "Final prompt" shows a reminder.
+- **Reference model, with material to declare**: six sections, `subject_definitions` / `summary` / `retention_analysis` / `detailed_description` / `overall_soundscape` / `non_diegetic_music`. Roles determine the `summary` task type (`reference generation`, `video editing`, `video continuation`, `keyframe completion`, `audio reuse`, `audio reference`). Write the following sentence or two in "Clip summary". Editing or continuing a source adds the official opening automatically, so it can stay empty. "Final prompt" warns if automatic additions still leave it empty.
 - **Reference model, without any material to declare**: the same three fields as the base model.
 
-This is the format's structure: empty fields are omitted, except that empty music is written as `non_diegetic_music: N/A`. For example, leaving Ambient sound empty removes `overall_soundscape`; "Final prompt" reminds you that the official guide lists it as required.
+Empty fields are omitted except music, which becomes `non_diegetic_music: N/A`. Empty Ambient sound omits `overall_soundscape`; "Final prompt" notes that the official guide requires it.
 
-**Numbering is automatic.** Subjects with pictures become `<Subject 1>`, `<Subject 2>`… in list order. Their pictures take the first `<Picture N>` numbers, followed by declared first, last and in-between frames and storyboard frames in chronological order. Videos follow list order (a source video used for editing, continuation or motion is `<Video 1>`). Audio lists enabled reference-video soundtracks first, then standalone audio. `@name` in your prompt is replaced with the corresponding label; text-only subjects do not use a number, and `@name` is replaced directly with their description. In the base model, only subjects can be named, and the model can only "see" the whole clip's first and last frames. Pictures elsewhere are held at their frames but do not appear in the prompt.
+**Numbering is automatic.** Pictured subjects get `<Subject 1>`, `<Subject 2>`… in list order. Their pictures take the first `<Picture N>` labels; first, last, intermediate and storyboard images follow chronologically. Videos follow list order, with editing, continuation or motion-reference sources as `<Video 1>`. Audio orders enabled video soundtracks before standalone files. `@name` becomes a label, or the description for unnumbered text-only subjects. The base model allows only subject mentions and sees only the clip's first/last frames; other pictures are pinned but omitted from the prompt.
 
 The bundled upstream planner handles this part (see [NOTICE](NOTICE)).
 
-Official reference limits are 9 pictures, 3 videos (no more than 15 seconds in total), 3 audio clips (including reference-video soundtracks) and 12 files in total. There can be at most 9 subjects, including those without pictures. Excess counts are reported on the page and reject the run. Durations are known only after reading the files and are checked in "Final prompt" and when the run starts. Each reference video (including the source video) is read only up to the clip's length and sent for at most 15 seconds; longer segments are shortened with a warning. If the segments actually sent total more than 15 seconds, the run is rejected. It is rejected rather than silently dropping a reference, because dropping one would shift every subsequent label.
+Reference limits: 9 pictures, 3 videos totalling at most 15 seconds, 3 audio clips including video soundtracks, 12 files and 9 subjects including text-only ones. Excess counts block the run. Durations require file reads and are checked in "Final prompt" and at execution start. Videos, including the source, are read up to the clip length and at most 15 seconds, with truncation warnings. A total above 15 seconds rejects the run; references are never silently dropped, which would shift later labels.
 
 ## Connections upstream of the node
 
-The node loads no models. An upstream loader reads the diffusion model and passes it through the `MODEL` input. Anything that patches the model therefore goes upstream of `model` / `model_turbo`; the panel does not need to know about it:
+Models are loaded upstream and passed through `MODEL`. Connect model patches before `model` / `model_turbo`; no panel setting is needed:
 
 - **LoRA, acceleration LoRA**: `LoraLoaderModelOnly`.
 - **Fun ControlNet Union** (the official approach to structural control / local re-rendering): `ModelPatchLoader` + `Apply MiniMax H3 Fun ControlNet`; connect its output to `model` (also connect it on the `model_turbo` branch if using `Draft`). Prepare the control video at 24 fps, starting at the clip's first frame. The patch adapts it to the clip's length and frame size.
@@ -411,9 +430,9 @@ The node loads no models. An upstream loader reads the diffusion model and passe
 
 ## Measurements
 
-These numbers come from development tests (ComfyUI 0.39.0). They illustrate behavior, not guaranteed performance.
+Development measurements (ComfyUI 0.39.0), illustrating behaviour rather than guaranteed performance.
 
-How these were measured: PSNR between two videos is calculated per frame, then averaged; "frame-to-frame change" is the mean absolute pixel difference between adjacent frames. The long-take seam measurements use `tests/measure_seam.py` (given two takes, the joined clip and the seam frame); cell independence uses `tests/measure_vae_cells.py`. Unless stated otherwise, these use draft settings (acceleration LoRA, around 672×384, 124 frames). Each number comes from one run; no statistics across multiple seeds were collected.
+PSNR is averaged across frames; "frame-to-frame change" is mean absolute pixel difference. Seam measurements use `tests/measure_seam.py` (two takes, the join and seam frame); cell independence uses `tests/measure_vae_cells.py`. Unless noted, settings are draft (acceleration LoRA, around 672×384, 124 frames), with one run per number and no multi-seed statistics.
 
 **"Change amount" is not linear.** The model's schedule has a shift. With the panel's own schedule, shift s and denoise d give a starting noise fraction of s·d / (1 + (s−1)·d). With external `sigmas` connected, Change amount has no effect; the starting level is determined by the sigma you supply. The panel then hides this percentage, and the run report says `external sigmas`:
 
@@ -425,9 +444,9 @@ How these were measured: PSNR between two videos is calculated per frame, then a
 | 0.15 | 67.9% |
 | 0.05 | 38.7% |
 
-To keep most of the original clip, set Change amount much lower than intuition suggests. The panel displays this percentage beside it; face refinement's "Strength" takes this percentage directly. In tests with the base model, 0.7 produced a completely different clip; 0.3 preserved composition and movement while regenerating details; 0.15 was almost identical to the original.
+Retaining the source requires a lower Change amount than intuition suggests; use the displayed noise percentage. Face refinement's "Strength" takes that percentage directly. Base-model tests: 0.7 produced a different clip; 0.3 kept composition and motion but redrew detail; 0.15 stayed close to the source.
 
-**The same seed does not guarantee the same clip.** Running the official template twice without changes gave a per-frame PSNR of only 19–20 dB between the results. The difference between Gacha Director and the official template was of the same order. To keep a result, keep its file.
+**The same seed does not guarantee the same clip.** Two consecutive runs of the unchanged official template matched at 19–20 dB PSNR, comparable to the difference between Gacha Director and the template. Keep the file to preserve a result.
 
 **Seam regeneration within a long take (takes sharing a source video).** Two takes sharing a source video were spliced at a cell edge. With a direct hard cut, frame-to-frame change at the seam was 1.7 times the usual level; regenerating the seam brought it back to the usual level. Cells kept without regeneration differ from the picked takes by 31–34 dB (the loss from one VAE encode/decode round trip). Lowering strength from 1 to 0.3 still smoothed the seam while keeping the regenerated cells closer to the picked takes.
 
@@ -468,14 +487,14 @@ If the model produces a dissolve or whip pan rather than a hard cut, the cut may
 | 60–84 (through the end of the next cell) | 25 | 1.1× | 1.6 dB |
 | 51–84 (previous method: one whole cell per side) | 34 | 1.3× | 1.6 dB |
 
-What this table shows:
+Findings:
 
 - Ranges ending on a cell boundary (the four rows ending at 67) impose almost no penalty on subsequent retained frames (0–0.5 dB); ending inside a cell costs 3.6 dB. Extending only 1 frame into the next cell leaves the jump (2×). Regenerating the whole next cell as well (60–84) gives the smallest jump, at a penalty of 1.6 dB, and replaces 17 more frames of the second take.
 - 4 and 8 frames help, but less than 12; 16 is no better. The automatic range's target of "at least 12 frames, ending on a cell boundary" comes from this table. The automatic-range row was also run with two other seeds (1.27× and 1.25×; penalties 0.4 and 0.1 dB), then once with the two takes swapped (1.18×, 0.5 dB).
 - Over the same 12 frames, strength 0.3 gives 1.5×, worse than strength 1.
 - With the seam inside a cell at frame 62 (hard cut: 4.4×; encode/decode only: 3.6×), regenerating just its group of 4 frames (60–63) gives 2.1×; 56–67 (12 frames, through the cell's end) gives 1.3× with a 0.9 dB penalty; the previous method (34–84, 51 frames) gives 1.4× with a 1.9 dB penalty. With the seam at frame 70, just inside a cell, 64–84 (21 frames) gives 1.3× with a 1.6 dB penalty.
 
-These results all concern this one pair of takes. Each number is from one run unless stated otherwise. 12 frames is the current default approach, not a measured universal minimum. Sound at the seam was not measured.
+Results apply to this pair only, with one run per number unless noted. 12 frames is the current default, not a universal minimum. Seam audio was not measured.
 
 **For one dissimilar pair, none of the tested ranges and strengths closed the seam.** Another pair also shared one source video and one prompt, with two seeds, but had more movement and very different lighting and colour between seeds. Its similarity reading in the strip was about 19 dB. The seam was again at frame 68: a hard cut gave 2.1×; encode/decode only gave 2.0×. Ranges of 8, 12 and 16 frames ending on a cell boundary all gave 2.0×, with the jump staying in place. A 13-frame range across both sides gave 1.8×; 25 and 34 frames gave 1.9×, moving the jump to the range's end (frame 85). At strength 0.3, 25 and 34 frames gave 1.9× and 1.8×, with the jump staying at the seam. This is why the strip shows similarity. The red threshold, 22 dB, was merely placed between these two measured points and has not been calibrated: all that is currently known is that this pair at about 33 dB joined smoothly, and this pair at about 19 dB did not.
 
@@ -503,22 +522,22 @@ Another draft final clip at 672×384 contained two other face sizes. A face abou
 
 ## Known limitations
 
-- **Held to a frame does not mean pixel-identical.** Pictures held on frames are conditioning constraints; cells kept without regeneration pass through one VAE encode/decode round trip. They are close to the original, but not copies of it.
-- **The model decides cut timing.** Short two-shot clips are mostly accurate to within a frame; with more shots and longer clips, offsets can exceed ten frames (see [Measurements](#measurements)). Cuts that must hit an exact time, such as a music cue, currently require generating more takes and choosing one, or generating sections in separate nodes and splicing them in an editing application.
-- **Cutting takes together may shorten the clip by a few frames.** At a cut where the earlier shot's take cuts before the later shot's take does, the frames in between belong to neither shot and are removed. The Generate page shows the final clip's actual length; subsequent face refinement uses that length.
-- **The sound of a clip cut together steps in level at the cuts.** Each shot keeps the sound of the take picked for it, and the model's takes differ in overall loudness. Measured on a 10-second clip cut together from 4 takes: the level changed by +15, −9 and −5 dB across its three cuts, all caused by switching sound sources. The panel does no loudness matching (shots are meant to differ in level, and levelling them shot by shot would flatten the sound). If it matters, there are two options: link sound at those cuts so the whole clip uses one take's sound without switching sources (with all three linked in the same clip, the changes were −1, +18 and −2 dB; the +18 came from a sound event in that take itself, measuring +15 at the same position when listening to that take on its own), or replace the soundtrack with one continuous track in an editor. Continued sound comes from another take and may not match lip movements or action timing, so it suits ambience and music, not dialogue.
-- **Cut detection relies on a sudden visual change.** Dissolves, whip pans or shots that look alike may prevent detection of the actual cut. That join then uses the requested frame number and may include a few frames from another shot. A burst of lightning or an explosion's flash right next to a cut may still move the cut that is found by a few frames (it did not in the 12 cuts measured), and a hard cut between two frames with nothing in them (plain black to plain white) is not seen. "Join log" records `no cut found`. There is currently no manual cut override.
+- **Held to a frame does not mean pixel-identical.** Pinned pictures are conditioning constraints. Retained cells pass through one VAE round trip: close to the source, not copies.
+- **The model decides cut timing.** Short two-shot clips are usually within a frame; longer clips with more shots can deviate by over ten frames (see [Measurements](#measurements)). For exact music cues, generate and select more takes, or generate sections in separate nodes and splice in an editor.
+- **Splicing may shorten the clip by a few frames.** If the preceding take cuts earlier, frames belonging to neither shot are removed. Generate shows the actual length, which face refinement uses.
+- **Spliced audio can change level at cuts.** Takes have different overall loudness. A 10-second clip from 4 takes changed by +15, −9 and −5 dB at its three cuts, due to source changes. No loudness matching is applied: shot-by-shot levelling would flatten dynamics. Link sound to use one take throughout (all three linked: −1, +18 and −2 dB; +18 was that take's own event, measuring +15 when played alone), or replace it with a continuous soundtrack in an editor. Carried sound may not match lips or action, so it suits ambience and music, not dialogue.
+- **Cut detection relies on sudden visual change.** Dissolves, whip pans or similar shots may go undetected, falling back to the requested frame and possibly retaining stray frames. Nearby lightning or explosions may shift a detection by a few frames (none in the 12 measured cuts). Flat black-to-white cuts are not detected. "Join log" reports `no cut found`; there is no manual override.
 - **Timing within a long take cannot be controlled.** The official prompt format has no notation for times within a shot; the panel guarantees only the order.
-- **Switching takes within a long take helps only when they look alike at the seam.** Sharing a source video or the same first/last frames usually achieves this, but does not guarantee it (see [Measurements](#measurements)). Regenerating a seam cannot connect dissimilar takes; use the same take for every section of that long take instead. To change only the later part, similar takes can be made by hand: on the Edit page pick the chosen take as the source video (the file list includes generated clips), set "Source usage" to "Source redraw", then under "Partial redraw" set "Redraw range" to "Selected cells" and give the range after the boundary (for instance `f122-242`, or click the cell strip on the timeline), leave everything else as it is, and generate takes as usual. Measured (draft, two seeds, redone from frame 119): the first 119 frames match the take they came from (one encode and decode, PSNR 38 dB), the frame-to-frame change where old meets new is 1.0 times the usual (no jump), the later part is new and different for each seed, and no cut appears; 163–175 seconds a take (about 2 minutes from nothing). The new take's first part is the take it came from, so pick the new take for every section of that long take; afterwards clear the source video and set "Redraw range" back to "Whole clip" to go back to generating from nothing. The panel does not do this in one step. An automatic range regenerates 12 to 21 frames per seam. A very short section within a long take may be regenerated entirely if the range is dragged wide, or an old workflow keeps the previous method of one whole cell per side (34 to 51 frames).
-- **Seam ranges are based only on picture.** Sound at the seam has not been measured. The strip's red similarity threshold, about 22 dB, lies between two measured points and has not been calibrated; it does not mean that takes below it cannot be joined.
+- **Switching takes within a long take helps only when they look alike at the seam.** A shared source or first/last frames usually helps, without guarantees (see [Measurements](#measurements)); otherwise keep one take throughout. To change only the later part, make similar takes manually: select the pick as the source on Edit (generated files are listed), set "Source usage" to "Source redraw", then "Partial redraw" / "Redraw range" to "Selected cells". Specify the later range (`f122-242` or click the cell strip), leave other settings and generate. Draft tests with two seeds, redrawing from frame 119: the first 119 frames matched (one VAE round trip, PSNR 38 dB); boundary change was 1.0 times normal, with no jump. Later parts differed without new cuts; 163–175 seconds each (about 2 minutes from scratch). Pick the new take for all sections, then clear the source and reset "Redraw range" to "Whole clip". No single-step operation exists. Automatic ranges redo 12 to 21 frames; wider or legacy whole-cell ranges (34 to 51 frames) may cover short sections entirely.
+- **Seam ranges are based only on picture.** Audio was not measured. The red threshold, about 22 dB, lies between two measured pairs, is uncalibrated and is not a lower limit for joining.
 - **Fun ControlNet and FastH3 are not integrated into the panel.** See the connections above.
-- **There is no whole-clip refinement button.** Generating again at the same size adds no benefit. Enlarging before another generation helps, but costs as much as generating a new clip at the larger size (see [Measurements](#measurements)). You can do this manually: select the final clip as the source video, set "Source usage" to "Source redraw", set Change amount to 0.32 (85% starting noise) under "More", switch to a larger-size preset and generate again.
-- **Face refinement has a narrow useful range.** It helps only faces tens of pixels across in medium or wide shots (see [Measurements](#measurements)), takes about as long as generating another clip, and depends strongly on starting noise: too little changes nothing; too much changes the background around the face as well.
-- **Face refinement handles one face per shot** (the one present longest) without recognizing identity. Choosing "Face reference" regenerates the face in every processed shot from that person's reference pictures. A face must be detected in at least four tenths of the shot's frames to qualify; lower coverage is usually a false detection. The detector can treat animal or monster faces as faces too; exclude those shots under "Target shots".
-- One node represents one clip (a 5 to 15 second generation window). For longer content, use continuation: add a video in the next node, choose "Video continuation" and select the file saved by the previous node.
-- The Output page reads ComfyUI's own history. Restarting ComfyUI clears the history and therefore the list; the files remain in the output directory.
-- Live preview and preset timings follow only runs queued from this browser page. A run queued from another browser or through the API has no live preview here and is not timed; its final clip is saved as usual, and a plain run is listed on the Output page. If the page is reloaded or the workflow tab is switched during generation, the preview comes back shortly afterwards (measured: within roughly ten-odd seconds), but that run is not timed.
-- Tested in one environment only: Windows 11 with one 24 GB graphics card. Other systems and cards with less memory have not been tried.
+- **There is no whole-clip refinement button.** Same-size regeneration adds no benefit; enlarging helps at the cost of a large render (see [Measurements](#measurements)). Manually select the final clip as source, set "Source usage" to "Source redraw", Change amount to 0.32 (85% starting noise) under "More", and generate with a larger preset.
+- **Face refinement has a narrow useful range.** It helps medium/wide-shot faces tens of pixels across (see [Measurements](#measurements)) and costs about a new generation. Low starting noise changes nothing; high noise changes nearby background.
+- **Face refinement handles one face per shot**, the longest-present one, without identifying people. "Face reference" applies the same person's images to every processed face. Detection must cover at least four tenths of the shot; lower coverage is usually false. Exclude animal or monster detections with "Target shots".
+- One node handles one clip, a 5 to 15 second window. Continue longer content by adding the previous node's output video to the next node with "Video continuation".
+- Output reads ComfyUI history: a restart clears the history and list, but keeps output files.
+- Preview and timing follow runs queued from this browser page. Other browsers or API runs are not previewed or timed, but save normally; direct runs appear on Output. Reloading or switching workflow tabs during generation restores preview shortly afterwards (measured: within ten-odd seconds), without timing that run.
+- Tested only on Windows 11 with one 24 GB GPU; other systems and smaller VRAM have not been measured.
 
 ## Development and testing
 
@@ -531,7 +550,7 @@ python custom_nodes/ComfyUI-GachaDirector/tests/test_expand.py
 python custom_nodes/ComfyUI-GachaDirector/tests/test_splice.py
 ```
 
-The panel must display cells, frame sizes and problems without requesting the server, so the document rules have a JavaScript mirror. Parity tests ensure the two agree. The other checks cover face tracking and crop/paste, cut planning when splicing takes (`test_cuts.py`; `test_splice.py` above checks how the splice nodes handle frames and sound), how the panel decides whether a generation in progress belongs to this clip, and the relationship between material and prompts (the last three commands require Node 20 or newer; run all commands below from the node package directory):
+JavaScript mirrors the document rules so the panel can show cells, sizes and problems without server requests; parity tests check consistency. Other tests cover face tracking and crop/paste, cut planning (`test_cuts.py`; `test_splice.py` tests splice-node picture and sound), run ownership, and material/prompt relationships. The last three commands need Node 20 or newer; run these from the package directory:
 
 ```bash
 python tests/test_faces.py
@@ -542,7 +561,7 @@ node --experimental-default-type=module tests/tracker.mjs
 node --experimental-default-type=module tests/material.mjs
 ```
 
-The Edit page also has a flow test in a real browser (typing `@`, choosing names with the keyboard, changing uses, renaming, inserting and merging boundaries, removing material and viewing the final prompt). It uses headless Edge or Chrome, requires ComfyUI to be running, and generates nothing:
+The Edit flow test uses headless Edge or Chrome: `@` input, keyboard selection, use changes, renaming, boundary insertion/merging, material removal and final-prompt checks. Requires running ComfyUI; generates nothing:
 
 ```bash
 node --experimental-websocket tests/shot.mjs tests/ui_edit_flow.mjs --lang zh
@@ -550,11 +569,11 @@ node --experimental-websocket tests/shot.mjs tests/ui_edit_flow.mjs --lang zh
 
 The example workflows are generated: `python templates/make_workflows.py`.
 
-`tests/measure_vae_cells.py` and `tests/measure_seam.py` are measurement scripts, not tests; they produce the numbers in [Measurements](#measurements). The former needs the H3 video VAE file (runs on CPU); the latter needs only three video files.
+`tests/measure_vae_cells.py` and `tests/measure_seam.py` produce the [Measurements](#measurements), rather than test assertions. The former needs an H3 video VAE and runs on CPU; the latter needs three videos.
 
 ## Credits and license
 
-Gacha Director builds on the Director projects for MiniMax H3 that came before it. Thank you to their authors:
+Gacha Director builds on earlier MiniMax H3 Director projects. Thanks to their authors:
 
 | Project | License | What this package takes from it |
 |---|---|---|
@@ -564,8 +583,8 @@ Gacha Director builds on the Director projects for MiniMax H3 that came before i
 | [ComfyUI-MiniMaxH3-Director](https://github.com/Thefrizzy1/ComfyUI-MiniMaxH3-Director) by the_frizzy1 | Apache-2.0 | The extension scaffold, DOM helpers and the memory hand-off. Idea: a pure compiler module in front of the conditioning nodes |
 | LTX Director by WhatDreamsCost | GPL-3.0 | The lineage the prompt planner comes from |
 
-The frame-grid and megapixel arithmetic restates that of [ComfyUI](https://github.com/Comfy-Org/ComfyUI) (GPL-3.0). Which file comes from which project, and at which commit, is listed in [NOTICE](NOTICE).
+Frame-grid and megapixel calculations restate [ComfyUI](https://github.com/Comfy-Org/ComfyUI) (GPL-3.0). File origins and commits are listed in [NOTICE](NOTICE).
 
-**License: GPL-3.0.** The package contains GPL-3.0 code, so the whole package is distributed under that license; the Apache-2.0 parts keep their own license texts in `LICENSES/`.
+**License: GPL-3.0.** The package contains GPL-3.0 code and is distributed under that license. Apache-2.0 parts retain their license texts in `LICENSES/`.
 
-The screenshots and sample clips use footage from two open movies: *Sintel* (© Blender Foundation, CC BY 3.0, durian.blender.org) and *Tears of Steel* ((CC) Blender Foundation, CC BY 3.0, mango.blender.org; visuals only, without its audio). The rest was generated with MiniMax H3. Each README uses panel screenshots in its own language.
+Screenshots and samples use footage from *Sintel* (© Blender Foundation, CC BY 3.0, durian.blender.org) and *Tears of Steel* ((CC) Blender Foundation, CC BY 3.0, mango.blender.org; picture only, no sound). Both are open movies; other footage is generated with MiniMax H3. Each README uses panel screenshots in its own language.
