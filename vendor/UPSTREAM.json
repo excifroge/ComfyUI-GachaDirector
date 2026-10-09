@@ -1,0 +1,21 @@
+{
+  "upstream": "ComfyUI-MiniMaxH3-Director",
+  "url": "https://github.com/seesee75-commits/ComfyUI-MiniMaxH3-Director",
+  "license": "GPL-3.0",
+  "license_text": "LICENSE",
+  "version": "0.2.2",
+  "commit": "84863236288ca387c291acffdbfee5b77d1a77a5",
+  "modified": false,
+  "files": {
+    "minimax_plan.py": {
+      "sha256": "a6c353c1a2c01991a804dc9fa2ac366ad36fd8f8d015101ebcb8c32b1bb68d45",
+      "bytes": 81966,
+      "lines": 1650
+    },
+    "minimax_preview.py": {
+      "sha256": "6aca2141abb40b180d1860f06ee04186a0787f1081d3c7245698b91468f7bb6f",
+      "bytes": 24723,
+      "lines": 471
+    }
+  }
+}

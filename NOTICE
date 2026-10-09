@@ -1,0 +1,108 @@
+ComfyUI-GachaDirector — Gacha Director
+Copyright (C) 2026 Excifroge
+
+This program is free software: you can redistribute it and/or modify it under the terms of
+the GNU General Public License, version 3, as published by the Free Software Foundation.
+See LICENSE.
+
+It is GPL-3.0 because it contains GPL-3.0 code (sections 1, 2 and 5 below). The
+Apache-2.0 code in sections 3 and 4 is included under the terms of its own licence, whose
+texts are kept in LICENSES/.
+
+
+Third-party code in this package
+================================
+
+1. ComfyUI-MiniMaxH3-Director — seesee75 and contributors — GPL-3.0
+   https://github.com/seesee75-commits/ComfyUI-MiniMaxH3-Director
+   Version 0.2.2, commit 84863236288ca387c291acffdbfee5b77d1a77a5.
+
+   Unmodified, byte for byte:
+     vendor/minimax_plan.py      the prompt planner
+     vendor/minimax_preview.py   the live preview
+   Sizes and sha256 digests are in vendor/UPSTREAM.json; tests/test_expand.py fails if
+   either file stops matching them. Nothing inside vendor/ is edited: behaviour is changed
+   from this package's own modules.
+
+   Adapted and modified (2026-09, 2026-10):
+     gd_frames.py     the nearest-in-time frame pick of the frame-rate conform
+                      (from minimax_media.load_video_tensor)
+     gd_h3.py         ref_video_size (from minimax_media._decode_target_size)
+     gd_compile.py    _task_types (restates the planner's task-type rule)
+
+   That project is a fork of WhatDreamsCost's LTX Director (GPL-3.0) by way of CGlide's
+   CS fork.
+
+2. ComfyUI-MiniMax-H3-Motion-Director — MiniMax H3 Motion Director contributors — GPL-3.0
+   https://github.com/j955229/ComfyUI-MiniMax-H3-Motion-Director
+   Commit f99390645533.
+
+   Adapted and modified (2026-09):
+     web/gd_modal.js  from web/js/minimax_director_modal.js: the node launcher, the
+                      page-root overlay, the tab header and their style rules. Renamed
+                      and restyled; the undo bar and the keyboard capture were added.
+
+3. ComfyUI_MiniMaxH3_Director — Copyright 2026 ComfyUI-Bernini Contributors (AIMixer)
+   Apache License 2.0 — text: LICENSES/Apache-2.0-AIMixer.txt
+   https://github.com/AIMixer/ComfyUI_MiniMaxH3_Director
+   As of 2026-09-09, commit f1f68bc9fcc6.
+
+   Ported and modified (2026-09):
+     web/gd_timeline.js   parts of web/js/minimax_timeline.js: frame/pixel mapping, mouse
+                          mapping, device-pixel-ratio sizing, the adaptive ruler, the hit
+                          test, the cut marker and the edge-drag snapshot.
+     web/gd_director.js   the GDGROUP header widget follows its BDGROUP widget.
+
+4. ComfyUI-MiniMaxH3-Director — Copyright 2026 the_frizzy1
+   Apache License 2.0, as that project declares — its licence file, verbatim:
+   LICENSES/Apache-2.0-Thefrizzy1.txt
+   https://github.com/Thefrizzy1/ComfyUI-MiniMaxH3-Director
+   Commit 4ff6b7be6eb6.
+
+   Copied and modified (2026-09, 2026-10):
+     web/gd_director.js          the extension scaffold and the host accessors
+                                 (from js/director.js)
+     web/gd_ui.js                DOM helpers (from js/timeline/editor.js)
+     gd_internal.py              the free-memory node, should_stage and total_vram_bytes
+                                 (from freemem.py)
+     gd_director.py              parts of the node declaration, the memory hand-off
+                                 wiring and several comments (from director.py)
+     gd_routes.py                _input_dir (from assets.py)
+     tests/test_widget_order.py  the explanation of why widget order is pinned
+
+5. ComfyUI — GPL-3.0
+   https://github.com/Comfy-Org/ComfyUI
+
+   gd_grid.py and web/gd_doc.js restate the frame-grid arithmetic of
+   comfy_extras/nodes_minimax_h3.py and the megapixel arithmetic of
+   comfy_extras/nodes_resolution.py, with the same function names so the two can be read
+   side by side.
+
+
+Pictures in docs/
+=================
+
+The screenshots and figures in docs/ show frames of two open movies, and of clips made
+from them with MiniMax H3 (frames altered by the model: restyled, edited or continued, as
+each figure says):
+
+   Sintel - (c) copyright Blender Foundation | durian.blender.org
+   Tears of Steel - (CC) Blender Foundation | mango.blender.org
+
+Both films are licensed under Creative Commons Attribution 3.0
+(https://creativecommons.org/licenses/by/3.0/). Only the picture of Tears of Steel is
+used; its soundtrack is not. The other pictures were generated with MiniMax H3 from text.
+
+
+Acknowledgements (ideas, no code)
+=================================
+
+Motion Director (j955229): staged pages, a material library over input/, per-segment
+blocks, the shot track drawn as a filmstrip of the source clip, the picture above the
+timeline with the transport below it, and the field names of the preview and save
+settings.
+Thefrizzy1's Director: a pure compiler module in front of the conditioning nodes.
+WhatDreamsCost's LTX Director: the lineage the planner comes from.
+
+The provenance of every item above was checked by comparing this package's files with
+the upstream sources at the commits named.

@@ -1,0 +1,513 @@
+/* Gacha Director panel */
+
+.gd-overlay { position: fixed; inset: 0; background: rgba(8, 12, 18, .78); z-index: 10000;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.gd-sec { background: #202c3b; border: 1px solid #2c3f55; border-radius: 8px; padding: 10px 12px; }
+.gd-sec h3 { margin: 0 0 8px; font-size: 13px; color: #9fd0ff; text-transform: none; }
+.gd-row { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; align-items: start; margin: 6px 0; }
+.gd-lbl { color: #b9c7d6; padding-top: 5px; }
+.gd-hint { grid-column: 2; color: #7f93a8; font-size: 11px; }
+.gd-row input, .gd-row select, .gd-row textarea { width: 100%; box-sizing: border-box;
+  background: #131b26; color: #e6edf3; border: 1px solid #34506b; border-radius: 5px; padding: 5px 7px; font: inherit; }
+.gd-row textarea { font: 12px/1.4 ui-monospace, Consolas, monospace; resize: vertical; }
+.gd-btn { background: #2b6cb0; color: #fff; border: 0; border-radius: 5px; padding: 5px 10px; cursor: pointer; font: inherit; }
+.gd-btn:hover { background: #3182ce; }
+.gd-ghost { background: #2a3a4d; color: #cfe3f5; }
+.gd-ghost:hover { background: #34506b; }
+.gd-right { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.gd-warn { margin: 0; padding-left: 18px; color: #f5c26b; }
+.gd-warn li { margin: 3px 0; }
+
+/* ---- timeline (canvas) ---- */
+.gd-sec-tl { padding-bottom: 8px; }
+.gd-tl-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+.gd-tl-head h3 { margin: 0; }
+.gd-tl { width: 100%; }
+.gd-tl-viewport { width: 100%; overflow-x: auto; overflow-y: hidden;
+  background: #0e141c; border: 1px solid #2c3f55; border-radius: 6px;
+  scrollbar-width: thin; scrollbar-color: #34506b #131b26; }
+.gd-tl-viewport::-webkit-scrollbar { height: 10px; }
+.gd-tl-viewport::-webkit-scrollbar-track { background: #131b26; border-radius: 5px; }
+.gd-tl-viewport::-webkit-scrollbar-thumb { background: #34506b; border-radius: 5px; }
+.gd-tl-viewport::-webkit-scrollbar-thumb:hover { background: #4a6c8f; }
+.gd-tl-canvas { display: block; }
+.gd-sec > textarea { width: 100%; box-sizing: border-box; background: #131b26; color: #e6edf3;
+  border: 1px solid #34506b; border-radius: 5px; padding: 6px 8px;
+  font: 12px/1.45 ui-monospace, Consolas, monospace; resize: vertical; }
+
+/* ---- four-page panel: shared page furniture ---- */
+.gd-sec-bad { border-color: #7a3b3b; background: #2a1f22; }
+.gd-note { margin: 4px 0 8px; padding: 7px 9px; border-left: 3px solid #4a6c8f;
+  background: #182533; border-radius: 4px; color: #b9c7d6; font-size: 11px; line-height: 1.5; }
+.gd-check { display: inline-flex; align-items: center; gap: 6px; color: #cfe3f5; }
+.gd-check input { width: auto; }
+.gd-badge-ok { padding: 1px 7px; border-radius: 10px; background: #16311f; color: #7ee2a8;
+  font-size: 10px; white-space: nowrap; }
+.gd-badge-bad { padding: 1px 7px; border-radius: 10px; background: #2f2024; color: #f5a3a3;
+  font-size: 10px; }
+.gd-media-field { display: grid; grid-template-columns: 1fr 30px; gap: 5px; }
+.gd-btn-icon { padding: 0; text-align: center; }
+.gd-pre { margin: 6px 0 0; padding: 8px; max-height: 260px; overflow: auto;
+  background: #0e141c; border: 1px solid #2c3f55; border-radius: 5px;
+  font: 11px/1.5 ui-monospace, Consolas, monospace; color: #b9c7d6; white-space: pre-wrap; }
+
+/* ---- live preview (takes page) ---- */
+.gd-live-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.gd-live-img.hidden { display: none !important; }
+
+/* ---- results page ---- */
+.gd-result { margin-bottom: 12px; }
+.gd-result-meta { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.gd-result-meta strong { color: #9fd0ff; font-size: 12px; }
+.gd-result-media { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.gd-result-video, .gd-result-img { max-width: 320px; max-height: 240px; background: #000;
+  border: 1px solid #2c3f55; border-radius: 5px; }
+.gd-result-details { margin-top: 8px; }
+.gd-result-details summary { cursor: pointer; color: #9fd0ff; font-size: 11px; }
+
+/* ---- run page: narrow preset list, wide parameters ---- */
+.gd-run-split { display: grid; grid-template-columns: minmax(240px, 300px) 1fr; gap: 14px;
+  align-items: start; }
+.gd-run-list { display: flex; flex-direction: column; gap: 6px; }
+.gd-run-list-head h3 { margin: 0 0 4px; font-size: 13px; color: #9fd0ff; }
+.gd-run-params { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.gd-preset { padding: 8px 10px; border: 1px solid #2c3f55; border-radius: 6px;
+  background: #1b2431; cursor: pointer; }
+.gd-preset:hover { border-color: #9fd0ff; }
+.gd-preset.active { border-color: #4fd08f; background: #16311f; }
+.gd-preset-name { display: flex; align-items: center; gap: 8px; color: #e6edf3;
+  font-size: 12px; font-weight: 600; }
+.gd-preset-params { margin-top: 3px; color: #7f93a8;
+  font: 10px/1.4 ui-monospace, Consolas, monospace; word-break: break-all; }
+.gd-preset-time { margin-top: 2px; color: #9fb3c8; font-size: 10px; }
+.gd-run-stats { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px;
+  font: 12px ui-monospace, Consolas, monospace; color: #cfe3f5; }
+.gd-runs { margin-top: 8px; border: 1px solid #2c3f55; border-radius: 5px; overflow: hidden; }
+.gd-runs-head { padding: 4px 8px; background: #202c3b; color: #9fb3c8; font-size: 10px; }
+.gd-run-row { display: grid; grid-template-columns: 160px 70px 1fr; gap: 8px;
+  padding: 3px 8px; border-top: 1px solid #22303f;
+  font: 10px/1.5 ui-monospace, Consolas, monospace; color: #b9c7d6; }
+.gd-run-secs { color: #7ee2a8; text-align: right; }
+.gd-run-sum { color: #6f8399; word-break: break-all; }
+
+/* ---- edit page: segment blocks stacked down the page ---- */
+.gd-edit-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.gd-mask-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px; }
+.gd-seg-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.gd-seg-head > .gd-note, .gd-seg-head > .gd-compiled { flex: 1 1 100%; margin: 0; }
+.gd-compiled[hidden] { display: none; }
+.gd-seg-head > .gd-right { margin-top: 0; }
+.gd-seg-head h3 { margin: 0; }
+.gd-seg { border: 1px solid #2c3f55; border-radius: 8px; background: #202c3b;
+  padding: 9px 11px; }
+.gd-seg.selected { border-color: #9fd0ff; box-shadow: 0 0 0 1px #9fd0ff inset; }
+.gd-seg.dead { opacity: .62; }
+.gd-seg-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.gd-seg-title strong { color: #cfe3f5; font-size: 12px; }
+.gd-seg-tag { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 11px;
+  border: 1px solid #34506b; background: #131b26; color: #9fd0ff; cursor: pointer;
+  font: 600 11px system-ui, sans-serif; }
+.gd-seg.selected .gd-seg-tag { background: #2b4a6b; color: #fff; border-color: #9fd0ff; }
+.gd-seg-actions { margin-left: auto; display: flex; gap: 5px; }
+.gd-btn-sm { padding: 2px 7px; font-size: 10px; }
+
+/* The header is a three-column grid; the title has to be the part that shrinks, or the
+   undo buttons get squeezed into vertical text. */
+.gd-head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gd-head-left .gd-title { flex: 0 1 auto; min-width: 0; }
+.gd-head-left .gd-undo { flex: 0 0 auto; }
+.gd-undo button { white-space: nowrap; }
+/* Nothing in the panel may scroll the page sideways. */
+.gd-page { overflow-x: hidden; }
+.gd-page .gd-tl-viewport { overflow-x: auto; }
+
+/* ---- takes page ---- */
+.gd-takes-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gd-takes-bar > .gd-hint { flex: 1 1 100%; }
+/* the size of a pool's cards: a slider at the right end of the pool's heading */
+.gd-cardsize { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.gd-seg-title > h3 { margin: 0; }
+.gd-cardsize input[type=range] { width: 150px; accent-color: #5aa5e6; }
+.gd-cardsize-now { min-width: 44px; font-family: ui-monospace, Consolas, monospace; }
+.gd-takeseg { border: 1px solid #2c3f55; border-radius: 8px; background: #202c3b; padding: 9px 11px; }
+/* generate page: a narrow navigator beside the shots, as tall as the visible page, its cells
+   as tall as the shots are long. For getting to a shot and nothing else. */
+.gd-takewrap { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; align-items: start; }
+.gd-takenav { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 2px; min-height: 120px;
+  border: 1px solid #2c3f55; border-radius: 8px; background: #0e141c; padding: 3px; box-sizing: border-box; overflow: hidden; }
+.gd-takenav-item { min-height: 0; overflow: hidden; margin: 0; padding: 0; cursor: pointer; border-radius: 5px; background: #182028;
+  border: 1px solid #22303f; border-left: 4px solid var(--seg, #5aa5e6); color: #6f8399;
+  font: 600 13px system-ui, sans-serif; }
+.gd-takenav-item.micro { font-size: 0; }
+.gd-takewrap-one { grid-template-columns: minmax(0, 1fr); }
+/* between two shot cards: how the lower shot follows the upper one */
+.gd-joinlog { margin: 4px 0 0; padding: 6px 8px; border-radius: 6px; background: #121a24; color: #b9c8d8;
+  font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+/* a shot that goes on from the one above it hangs on to it in the navigators */
+.gd-segnav-item.goes-on, .gd-takenav-item.goes-on { margin-top: -2px; border-top: 1px dashed #5aa5e6;
+  border-top-left-radius: 0; border-top-right-radius: 0; }
+/* a shot's player, and under it what can be done with the take it shows */
+.gd-takeview { display: flex; flex-direction: column; gap: 6px; }
+.gd-takeview-line { flex-wrap: wrap; }
+.gd-takenav-item:hover { background: #22303f; }
+.gd-takenav-item.takes { color: #9fd0ff; }
+.gd-takenav-item.picked { color: #7ee2a8; background: #16311f; border-color: #2c6b45; border-left-color: var(--seg, #4fd08f); }
+.gd-takenav-item.selected { box-shadow: 0 0 0 1px #9fd0ff inset; }
+.gd-takeseg.selected { border-color: #9fd0ff; box-shadow: 0 0 0 1px #9fd0ff inset; }
+.gd-takeseg.picked { border-color: #4fd08f; }
+.gd-takeseg-body { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 12px; margin-top: 8px; align-items: start; }
+/* A grid item is min-width:auto by default, so a pool of cards pushed the column wider
+   than the panel and the last cards fell off the right edge. */
+.gd-takeseg-body > * { min-width: 0; }
+/* A shot's pool is as tall as the player beside it and scrolls down inside that. */
+.gd-takeseg-body > .gd-pool { position: relative; align-self: stretch; min-height: 200px; }
+.gd-takeseg-body > .gd-pool > .gd-cands { position: absolute; inset: 0; max-height: none; }
+/* ---- player (shared: takes page beside each segment, edit page above the timeline) ---- */
+.gd-player { border: 1px solid #2c3f55; border-radius: 6px; overflow: hidden; }
+/* A faint checkerboard behind the picture: a clip with a black background on a plain
+   black box has no visible edge, and a letterboxed frame then looks like a crop. */
+.gd-player-box { position: relative; background-color: #10161d;
+  background-image: repeating-conic-gradient(#171e26 0 25%, transparent 0 50%);
+  background-size: 16px 16px; }
+/* --gd-aspect is the clip's canvas, set by the page that shows the player */
+.gd-player video { display: block; width: 100%; aspect-ratio: var(--gd-aspect, 16 / 9); max-height: 380px; object-fit: contain; background: transparent; }
+.gd-player video[hidden] { display: none; }
+.gd-player-overlay { position: absolute; left: 10px; bottom: 8px; padding: 2px 7px; border-radius: 4px;
+  background: rgba(0,0,0,.55); color: #e6edf3; font: 11px ui-monospace, Consolas, monospace; pointer-events: none; }
+.gd-player-overlay:empty { display: none; }
+.gd-player-controls { display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: #131b26; flex-wrap: wrap; }
+.gd-player-controls button { min-width: 30px; padding: 3px 7px; }
+.gd-player-controls .gd-active { background: #2b4a6b; color: #fff; border-color: #9fd0ff; }
+.gd-player-framebox { display: inline-flex; align-items: center; gap: 4px; }
+.gd-player-frameinput { width: 58px; text-align: center; font: 11px ui-monospace, Consolas, monospace; padding: 3px 4px; }
+.gd-player-time { font: 11px ui-monospace, Consolas, monospace; color: #cfe3f5; min-width: 110px; text-align: center; }
+.gd-player-range { flex: 1 1 140px; min-width: 100px; accent-color: #4fd08f; }
+.gd-player-empty { display: flex; align-items: center; justify-content: center; aspect-ratio: var(--gd-aspect, 16 / 9); max-height: 380px; color: #5c7089; font-size: 12px; }
+.gd-player-empty[hidden] { display: none; }
+/* edit page: a fixed-height letterbox above the timeline; the transport sits under the timeline */
+.gd-player-wide .gd-player-box { height: 300px; }
+.gd-player-wide video { width: 100%; height: 300px; aspect-ratio: auto; max-height: none; }
+.gd-player-wide .gd-player-empty { height: 56px; aspect-ratio: auto; max-height: none; }
+/* nothing to show: the box does not hold the room of a picture */
+.gd-player-wide .gd-player-box:has(> video[hidden]) { height: auto; }
+.gd-sec-tl > .gd-player-controls { border: 1px solid #2c3f55; border-top: 0; border-radius: 0 0 6px 6px; margin-bottom: 6px; }
+.gd-sec-tl > .gd-tl .gd-tl-viewport { border-radius: 6px 6px 0 0; }
+/* the cut bar: always present between the picture and the timeline */
+.gd-cutbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; margin: 6px 0;
+  border: 1px solid #2c3f55; border-radius: 6px; background: #131b26; }
+.gd-cutbar-sep { width: 1px; height: 18px; background: #2c3f55; }
+.gd-cutbar-input { width: 64px; text-align: center; font: 11px ui-monospace, Consolas, monospace; padding: 3px 4px; }
+.gd-cutbar button:disabled { opacity: .45; cursor: default; }
+.gd-cutbar .gd-danger:not(:disabled) { color: #ff8a8a; border-color: #7a3b3b; }
+/* the start box is the selected cut, drawn in the timeline's cut colour */
+.gd-cutbar-input.gd-cut-active:not(:disabled) { border-color: #ffd23f; color: #ffe08a; }
+.gd-cutbar .gd-hint { font-size: 10px; }
+.gd-fileline { font: 11px ui-monospace, Consolas, monospace; color: #7ee2a8; margin: 0 0 6px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ---- edit page: segment navigator beside the blocks ---- */
+.gd-segwrap { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.gd-segcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.gd-segnav { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 2px; min-height: 160px;
+  border: 1px solid #2c3f55; border-radius: 8px; background: #0e141c; padding: 3px; box-sizing: border-box; overflow: hidden; }
+.gd-segnav-item { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  min-height: 0; overflow: hidden; margin: 0; padding: 2px 6px 2px 9px; text-align: left; cursor: pointer;
+  border: 1px solid #22303f; border-left: 4px solid var(--seg, #5aa5e6); border-radius: 4px;
+  background: #182028; color: #cfe3f5; font: 11px system-ui, sans-serif; }
+.gd-segnav-item { transition: background-color .35s ease-out, border-color .35s ease-out; }
+.gd-segnav-item:hover { background: #22303f; }
+/* click feedback: lit for a moment, then the transition fades it back — no persistent selected look */
+.gd-segnav-item.flash { background: color-mix(in srgb, var(--seg, #5aa5e6) 55%, #182028); border-color: var(--seg, #9fd0ff); transition: none; }
+.gd-segnav-item.dead { opacity: .5; }
+.gd-segnav-name { font-weight: 600; color: var(--seg, #9fd0ff); }
+.gd-segnav-range, .gd-segnav-len { font: 10px ui-monospace, Consolas, monospace; color: #9fb0c4; }
+.gd-segnav-item.tiny .gd-segnav-len { display: none; }
+.gd-segnav-item.tiny { flex-direction: row; align-items: center; gap: 6px; }
+.gd-segnav-item.micro .gd-segnav-range, .gd-segnav-item.micro .gd-segnav-name { display: none; }
+.gd-segnav-item.micro { padding: 0 0 0 6px; }
+.gd-segnav-ph { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #ff5555; pointer-events: none; }
+.gd-segnav-ph::before { content: ""; position: absolute; left: 0; top: -5px; border: 4px solid transparent; border-left: 6px solid #ff5555; }
+.gd-seg { border-left: 4px solid var(--seg, #2c3f55); }
+.gd-seg-tag { border-color: var(--seg, #34506b); color: var(--seg, #9fd0ff); }
+/* Cards wrap into as many rows as the width and their size make, and the pool scrolls down. */
+.gd-cands { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; max-height: 70vh;
+  overflow-y: auto; overflow-x: hidden; padding: 0 4px 6px 0; scrollbar-width: thin; }
+.gd-cand { flex: 0 0 var(--gd-card, 170px); max-width: 100%; border: 1px solid #2c3f55; border-radius: 6px; background: #1b2431; overflow: hidden; cursor: pointer; }
+/* the slider at its lowest: a list, one take a row */
+.gd-cards-list .gd-cands { gap: 4px; }
+.gd-cards-list .gd-cand { flex: 1 1 100%; display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; }
+.gd-cards-list .gd-cand video, .gd-cards-list .gd-cand .gd-cand-ph { max-height: 54px; }
+.gd-cards-list .gd-cand-meta { white-space: normal !important; padding: 2px 10px; }
+.gd-cards-list .gd-cand-actions { padding: 0 8px; }
+.gd-cand:hover { border-color: #9fd0ff; }
+.gd-cand.picked { border-color: #4fd08f; box-shadow: 0 0 0 1px #4fd08f inset; }
+.gd-cand.viewing { outline: 2px solid #5aa5e6; outline-offset: -2px; }
+/* the whole frame, never a crop: a take is judged on all of it */
+.gd-cand video, .gd-cand .gd-cand-ph { display: block; width: 100%; aspect-ratio: var(--gd-aspect, 16 / 9); max-height: 306px; object-fit: contain; background: #000; }
+.gd-cand .gd-cand-ph { display: flex; align-items: center; justify-content: center; color: #6f8399; font-size: 11px; }
+.gd-cand-meta { padding: 5px 7px; font: 10px/1.4 ui-monospace, Consolas, monospace; color: #9fb3c8; }
+.gd-cand-actions { display: flex; gap: 4px; padding: 0 6px 6px; }
+.gd-cand-actions .gd-btn { padding: 2px 7px; font-size: 10px; }
+.gd-composite { border: 1px solid #4fd08f; border-radius: 8px; background: #16311f; padding: 9px 11px; margin-bottom: 12px; }
+.gd-badge-blue { padding: 1px 7px; border-radius: 10px; background: #1b3550; color: #9fd0ff; font-size: 10px; white-space: nowrap; }
+
+/* the run page's VRAM readout: one line, number then button */
+.gd-vram { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.gd-vram .gd-hint { font: 11px ui-monospace, Consolas, monospace; }
+
+/* ---- clip material: compact grids of labelled cells, cards, list rows ---- */
+.gd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 14px; margin: 6px 0; }
+.gd-fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gd-fld-lbl { color: #b9c7d6; font-size: 11px; }
+.gd-fld input[type="text"], .gd-fld input[type="number"], .gd-fld select,
+.gd-listrow input[type="text"], .gd-listrow input[type="number"], .gd-listrow select,
+.gd-card input[type="text"], .gd-card select, .gd-inline input[type="number"], .gd-inline select {
+  box-sizing: border-box; background: #131b26; color: #e6edf3; border: 1px solid #34506b;
+  border-radius: 4px; padding: 4px 6px; font: inherit; min-width: 0; }
+.gd-fld > input[type="text"], .gd-fld > select { width: 100%; }
+.gd-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gd-inline input[type="number"] { width: 84px; }
+.gd-inline .gd-hint, .gd-listrow .gd-hint, .gd-recipes .gd-hint { grid-column: auto; }
+.gd-recipes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
+.gd-card { border: 1px solid #2c3f55; border-radius: 6px; padding: 8px 10px; margin: 6px 0; background: #1b2532; }
+.gd-card-head { display: flex; align-items: center; gap: 8px; }
+.gd-card-head > button { margin-left: auto; width: 26px; height: 24px; }
+.gd-tag { padding: 1px 7px; border-radius: 4px; background: #13283b; color: #9fd0ff;
+  font: 11px ui-monospace, Consolas, monospace; white-space: nowrap; }
+.gd-thumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.gd-thumb { position: relative; width: 84px; height: 84px; border: 1px solid #34506b; border-radius: 5px;
+  overflow: hidden; background: #0f151d; }
+.gd-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gd-thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; }
+.gd-listrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0;
+  border-top: 1px solid #263649; }
+.gd-listrow:first-of-type { border-top: 0; }
+.gd-listrow > .gd-media-field { flex: 1 1 220px; }
+.gd-listrow > input[type="text"] { flex: 1 1 160px; }
+.gd-listrow > button.gd-btn-icon { flex: 0 0 26px; height: 24px; margin-left: auto; }
+.gd-compiled { margin-top: 6px; }
+.gd-compiled .gd-pre { max-height: 380px; white-space: pre-wrap; }
+
+/* ---- the render in progress, on the takes page ---- */
+.gd-live { display: grid; grid-template-columns: minmax(240px, 420px) 1fr; gap: 12px; align-items: center;
+  border: 1px solid #34506b; border-radius: 8px; padding: 10px 12px; background: #172230; }
+.gd-live[hidden] { display: none; }
+.gd-live-img { width: 100%; max-height: 260px; object-fit: contain; background: #0f151d; border-radius: 5px; min-height: 90px; }
+.gd-live-side { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---- edit page: a shot's text beside that shot's material ---- */
+.gd-shot-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px;
+  margin-top: 8px; align-items: start; }
+@media (max-width: 1100px) { .gd-shot-body { grid-template-columns: minmax(0, 1fr); } }
+.gd-shot-text, .gd-shot-mats { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gd-vfld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gd-vfld > .gd-hint { grid-column: auto; }
+.gd-mbox { position: relative; }
+.gd-mbox textarea, .gd-vfld > textarea, .gd-vfld > input[type="text"] { width: 100%; box-sizing: border-box;
+  background: #131b26; color: #e6edf3; border: 1px solid #34506b; border-radius: 5px; padding: 6px 8px;
+  font: 12px/1.45 ui-monospace, Consolas, monospace; }
+.gd-mbox textarea, .gd-vfld > textarea { display: block; resize: vertical; }
+/* what can be named, offered under the box while a name is being typed after "@" */
+.gd-at { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; display: flex; flex-direction: column;
+  background: #0e141c; border: 1px solid #34506b; border-radius: 5px; overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .5); }
+.gd-at[hidden] { display: none; }
+.gd-at-item { display: flex; align-items: baseline; gap: 10px; padding: 4px 9px; border: 0; background: transparent;
+  color: #e6edf3; text-align: left; cursor: pointer; font: 12px ui-monospace, Consolas, monospace; }
+.gd-at-item.on, .gd-at-item:hover { background: #1b3550; }
+.gd-at-item .gd-hint { grid-column: auto; font: 11px system-ui, sans-serif; }
+/* material: one group per kind, one row per piece */
+.gd-matgroup { border: 1px solid #2c3f55; border-radius: 6px; background: #1b2532; padding: 6px 8px; }
+.gd-matgroup-title { color: #9fb3c8; font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.gd-matgroup > .gd-inline { margin-top: 4px; }
+.gd-mat { border-top: 1px solid #263649; padding: 5px 0; }
+.gd-matgroup-title + .gd-mat { border-top: 0; }
+.gd-mat-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gd-mat-line input[type="text"], .gd-mat-line input[type="number"], .gd-mat-line select {
+  box-sizing: border-box; background: #131b26; color: #e6edf3; border: 1px solid #34506b;
+  border-radius: 4px; padding: 4px 6px; font: inherit; min-width: 0; }
+.gd-mat-line select { max-width: 230px; }
+.gd-mat-line select:disabled { opacity: .7; }
+.gd-mat-line .gd-inline input[type="number"] { width: 62px; }
+.gd-mat-name { flex: 0 1 124px; width: 124px; font-family: ui-monospace, Consolas, monospace !important; color: #9fd0ff !important; }
+.gd-mat-tools { margin-left: auto; display: inline-flex; gap: 4px; }
+.gd-mat-tools > button.gd-btn-icon, .gd-mat-line .gd-inline > button.gd-btn-icon { flex: 0 0 24px; width: 24px; height: 24px; }
+.gd-mat-thumb { flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid #34506b; border-radius: 4px;
+  overflow: hidden; background: #0f151d; display: flex; align-items: center; justify-content: center;
+  color: #9fb3c8; font-size: 16px; }
+.gd-mat-thumb img, .gd-mat-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gd-mat-more { margin: 6px 0 2px 50px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+/* what the material adds up to, read off it */
+.gd-mode { padding: 1px 7px; border-radius: 10px; background: #2a2440; color: #cdb8ff; font-size: 10px; white-space: nowrap; }
+.gd-budget { font: 11px ui-monospace, Consolas, monospace; color: #7ee2a8; margin: 0 0 8px; }
+.gd-budget.over { color: #f5a3a3; }
+.gd-source { margin-top: 10px; border-top: 1px solid #2c3f55; padding-top: 8px; }
+.gd-source > .gd-hint { display: block; }
+.gd-fold > summary { cursor: pointer; color: #9fd0ff; font-size: 12px; }
+.gd-fold[open] > summary { margin-bottom: 6px; }
+.gd-fld > .gd-hint { grid-column: auto; }
+.gd-wrap { white-space: normal; border-radius: 6px; padding: 4px 8px; line-height: 1.5; }
+
+/* ---- project page: the facts of a render, large ---- */
+.gd-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.gd-fact { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid #2c3f55;
+  border-radius: 6px; background: #182533; min-width: 0; }
+.gd-fact-lbl { color: #9fb3c8; font-size: 11px; }
+.gd-fact strong { color: #e6edf3; font: 600 18px ui-monospace, Consolas, monospace; }
+.gd-fact .gd-hint { grid-column: auto; }
+/* a size of one's own: two boxes, a button, and what would really be used */
+.gd-ownsize { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.gd-ownsize input[type=number] { width: 96px; }
+.gd-ownsize-say.gd-bad { color: #ff9a9a; }
+/* a button that cannot be pressed has to look it, wherever it is */
+.gd-btn:disabled { opacity: .45; cursor: not-allowed; }
+.gd-preset-params { font: 11px/1.4 ui-monospace, Consolas, monospace; color: #9fb3c8; word-break: normal; }
+
+/* ---- post page ---- */
+.gd-post { display: flex; flex-direction: column; gap: 12px; max-width: 1100px; }
+.gd-post-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+.gd-post-pairhint { margin-top: 14px; }
+/* how much of each shot's pick a join leaves */
+.gd-kept { padding: 2px 8px; border-radius: 10px; background: #1b2633; color: #c9d6e2; font-size: 12px; }
+.gd-kept-none { background: #3a2226; color: #f5c2c2; }
+.gd-post-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* a click enlarges both pictures at the point clicked */
+.gd-post-pair .gd-player-box { overflow: hidden; }
+.gd-post-pair video { cursor: zoom-in; transform-origin: var(--gd-zoom-at, 50% 50%); }
+.gd-post-pair.gd-zoomed video { cursor: zoom-out; transform: scale(3); }
+.gd-post-side strong { color: #9fd0ff; font-size: 12px; }
+.gd-note-bad { border-left-color: #a34b4b; background: #2a1f22; color: #f5c2c2; }
+.gd-post-state { margin: 4px 0 8px; }
+.gd-post-state .gd-badge-blue, .gd-post-state .gd-badge-ok, .gd-post-state .gd-badge-bad { font-size: 12px; padding: 3px 10px; white-space: normal; }
+.gd-row > .gd-inline { min-width: 0; }
+.gd-row > .gd-inline input[type="number"] { width: 90px; }
+
+/* ---- tooltips: what a control is for, when the pointer rests on it ---- */
+.gd-tip { position: fixed; z-index: 100000; max-width: 360px; padding: 6px 9px; border-radius: 4px;
+  background: #0d141c; border: 1px solid #33485e; color: #d5dfe9; font: 12px/1.45 system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45); pointer-events: none; }
+.gd-tip-line { margin-top: 3px; padding-left: 10px; text-indent: -10px; color: #aebccb; }
+.gd-tip[hidden] { display: none; }
+
+/* ---- line icons ---- */
+.gd-icon { display: block; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round;
+  stroke-linejoin: round; }
+
+/* ---- how a shot follows the one before it: picture and sound, each linked or not ---- */
+.gd-join { display: flex; align-items: center; justify-content: center; gap: 6px; margin: -5px 0; padding: 0 12px; }
+.gd-join::before, .gd-join::after { content: ""; flex: 1 1 0; height: 1px; background: #26384a; }
+.gd-link { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 7px; border-radius: 11px;
+  border: 1px solid #2c3e50; background: #131c26; color: #6f8296; cursor: pointer; }
+.gd-link:hover { border-color: #46627e; color: #a9bccf; }
+.gd-link.on { border-color: #3f7fb8; background: #16283a; color: #7fbdf0; }
+.gd-link.on:hover { border-color: #5aa5e6; }
+.gd-link.locked { cursor: default; opacity: .6; }
+.gd-link.locked:hover { border-color: #3f7fb8; }
+.gd-links { display: inline-flex; align-items: center; gap: 4px; }
+.gd-links .gd-link { height: 18px; padding: 0 5px; cursor: default; }
+
+.gd-hint-bad { color: #f0a9a9; }
+.gd-joinsum { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.gd-shot-mats.gd-dropping, .gd-source.gd-dropping { outline: 2px dashed #5aa5e6; outline-offset: 3px; border-radius: 6px; }
+
+.gd-row-idle > .gd-lbl, .gd-row-idle .gd-hint { opacity: .45; }
+.gd-row-idle input { opacity: .6; }
+
+/* ---- the picks played one after the other (Generate page) ---- */
+.gd-seq-gap { height: 300px; display: flex; align-items: center; justify-content: center; color: #7d8ea3; font-size: 13px;
+  background-image: repeating-linear-gradient(-45deg, transparent 0 10px, rgba(255, 255, 255, .03) 10px 20px); }
+.gd-seq-gap[hidden] { display: none; }
+
+.gd-takecount { display: inline-flex; align-items: center; gap: 6px; }
+.gd-takecount input { width: 54px; text-align: center; background: #0e141c; color: #e6edf3; border: 1px solid #34506b; border-radius: 5px; padding: 4px 4px; font: 12px system-ui, sans-serif; }
+
+/* ---- the material library: a window of the panel, over whichever page is shown ---- */
+.gd-tab-lib { display: inline-flex; align-items: center; gap: 6px; }
+.gd-libwin { position: absolute; display: flex; flex-direction: column; min-width: 420px; min-height: 280px;
+  background: #141c26; border: 1px solid #3d5a78; border-radius: 8px; box-shadow: 0 14px 40px rgba(0, 0, 0, .55);
+  overflow: hidden; resize: both; }
+.gd-libwin.gd-dropping { border-color: #5aa5e6; box-shadow: 0 0 0 2px #5aa5e6 inset, 0 14px 40px rgba(0, 0, 0, .55); }
+.gd-libwin-head { flex: 0 0 40px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px;
+  border-bottom: 1px solid #2c3f55; background: #182230; cursor: move; user-select: none; }
+.gd-libwin-head strong { font-size: 13px; color: #dce8f4; }
+.gd-libwin-gap { flex: 1 1 auto; }
+.gd-libwin-seg { display: inline-flex; border: 1px solid #34506b; border-radius: 6px; overflow: hidden; }
+.gd-libwin-half { background: transparent; color: #9fb3c8; border: 0; padding: 4px 14px; font: 12px system-ui, sans-serif; cursor: pointer; }
+.gd-libwin-half.on { background: #24486b; color: #fff; }
+.gd-libwin-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid #26384a; }
+.gd-libwin-chip { background: transparent; color: #9fb3c8; border: 1px solid #2c3f55; border-radius: 999px; padding: 3px 11px;
+  font: 12px system-ui, sans-serif; cursor: pointer; }
+.gd-libwin-chip.on { background: #2a3a4c; color: #fff; border-color: #4a6a8a; }
+.gd-libwin-chip:disabled { opacity: .35; cursor: default; }
+.gd-libwin-bar input { flex: 1 1 120px; min-width: 80px; margin-left: 6px; background: #0e141c; color: #e6edf3; border: 1px solid #34506b;
+  border-radius: 5px; padding: 4px 8px; font: 12px system-ui, sans-serif; }
+.gd-libwin-target { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 10px;
+  background: #1d3550; color: #cfe6ff; font-size: 12px; }
+.gd-libwin-target[hidden] { display: none; }
+.gd-libwin-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 168px minmax(0, 1fr); }
+.gd-libwin-tree { overflow: auto; border-right: 1px solid #26384a; padding: 6px 4px; }
+.gd-libwin-folder { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px; border-radius: 5px; color: #b9c7d6;
+  font-size: 12px; cursor: pointer; }
+.gd-libwin-folder:hover { background: #1c2836; }
+.gd-libwin-folder.on { background: #24384d; color: #fff; }
+.gd-libwin-folder.over { outline: 1px dashed #5aa5e6; background: #1d3550; }
+.gd-libwin-folder .gd-icon { flex: 0 0 auto; color: #7f93a8; }
+.gd-libwin-fname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-libwin-n { flex: 0 0 auto; color: #6f8399; font: 11px ui-monospace, Consolas, monospace; }
+.gd-libwin-folder input { flex: 1 1 auto; min-width: 0; background: #0e141c; color: #e6edf3; border: 1px solid #5aa5e6; border-radius: 4px;
+  padding: 2px 5px; font: 12px system-ui, sans-serif; }
+.gd-libwin-x { flex: 0 0 auto; visibility: hidden; background: transparent; border: 0; color: #7f93a8; cursor: pointer; padding: 0 2px; font-size: 13px; }
+.gd-libwin-folder:hover .gd-libwin-x { visibility: visible; }
+.gd-libwin-x:hover { color: #f0a9a9; }
+.gd-libwin-new { display: block; width: 100%; margin-top: 6px; padding: 5px 8px; text-align: left; background: transparent; border: 0;
+  border-top: 1px solid #26384a; color: #7f93a8; font: 12px system-ui, sans-serif; cursor: pointer; }
+.gd-libwin-new:hover { color: #cfe3f5; }
+.gd-libwin-grid { overflow: auto; padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px;
+  grid-auto-rows: max-content; align-content: start; }
+.gd-libwin-item { border: 1px solid #2c3f55; border-radius: 6px; background: #0e141c; overflow: hidden; cursor: grab; }
+.gd-libwin-item:hover { border-color: #6f93b5; }
+.gd-libwin-item.on { border-color: #9fd0ff; box-shadow: 0 0 0 1px #9fd0ff inset; }
+.gd-libwin-item.current { border-color: #4fd08f; box-shadow: 0 0 0 1px #4fd08f inset; }
+.gd-libwin-thumb { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: #000; pointer-events: none; }
+video.gd-libwin-thumb { pointer-events: auto; }
+.gd-libwin-sound { display: flex; align-items: center; justify-content: center; background: #121a24; color: #6f8399; }
+.gd-libwin-name { padding: 4px 6px 0; font: 10px/1.3 ui-monospace, Consolas, monospace; color: #b9c7d6; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.gd-libwin-meta { padding: 0 6px 5px; font: 10px/1.3 system-ui, sans-serif; color: #6f8399; }
+.gd-libwin-more { grid-column: 1 / -1; }
+.gd-libwin .gd-lib-empty { grid-column: 1 / -1; padding: 20px; color: #7f93a8; font-size: 12px; }
+.gd-lib-state { flex: 0 0 auto; padding: 0 4px; color: #9fb3c8; font-size: 12px; white-space: nowrap; }
+.gd-lib-state.bad { color: #f0a9a9; }
+
+/* ---- the seams under the Generate page's timeline: what is generated again around each ---- */
+.gd-tl-below { position: relative; }
+.gd-tl-below:empty { display: none; }
+.gd-seams { height: 30px; margin-top: 2px; background: #121a24; border-top: 1px solid #26384a; }
+.gd-seam-line { position: absolute; top: 0; width: 1px; height: 7px; background: #33485e; pointer-events: none; }
+.gd-seam-line.cell { height: 100%; background: #2b3d51; }
+/* the seam: a line, and a head on it to press (the line itself lets the pointer through:
+   it runs through the middle of a handle that stands on the seam) */
+.gd-seam-at { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed #9fd0ff; pointer-events: none; z-index: 4; }
+.gd-seam-at::before { content: ""; position: absolute; left: -6px; top: 0; width: 11px; height: 7px; background: #9fd0ff;
+  clip-path: polygon(0 0, 100% 0, 50% 100%); pointer-events: auto; cursor: pointer; }
+.gd-seam-at:hover::before, .gd-seam-at.front::before { background: #fff; }
+.gd-seam { position: absolute; top: 8px; height: 14px; min-width: 2px; box-sizing: border-box; background: rgba(90, 165, 230, .32);
+  border: 1px solid #5aa5e6; border-radius: 3px; }
+.gd-seam.short { background: rgba(240, 166, 64, .28); border-color: #f0a640; }
+.gd-seam.none { background: transparent; border-style: dashed; }
+/* two ranges may lie over one another: the one under the pointer is on top, and above it
+   the one whose seam was pressed (a bar wholly under another is never under the pointer) */
+.gd-seam:hover { z-index: 2; }
+.gd-seam.front { z-index: 3; }
+.gd-seam-handle { position: absolute; top: -4px; width: 9px; height: 20px; margin-left: -5px; border-radius: 3px;
+  background: #9fd0ff; cursor: ew-resize; touch-action: none; }
+.gd-seam.short .gd-seam-handle { background: #f0a640; }
+.gd-seam-handle.l { left: 0; }
+.gd-seam-handle.r { left: 100%; }
+.gd-seam-handle:hover { background: #fff; }
+.gd-seam-label { position: absolute; top: 8px; margin-left: 12px; font: 11px/14px ui-monospace, Consolas, monospace; color: #9fb3c8;
+  white-space: nowrap; pointer-events: none; }
+.gd-seam-label.unlike { color: #f0a9a9; }
+.gd-seam-label.before { margin-left: 0; margin-right: 12px; }
+.gd-seam-label.in { margin-left: 0; margin-right: 12px; padding: 0 5px; border-radius: 3px; background: rgba(18, 26, 36, .86); z-index: 1; }
+.gd-seam-label.front { z-index: 3; background: #121a24; }
