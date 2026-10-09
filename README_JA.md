@@ -67,7 +67,9 @@ ComfyUIを再起動し、ログに `Gacha Director v2.1.0: 10 nodes registered` 
 - [AGENTS.md](AGENTS.md)：AIアシスタント向け引き継ぎ資料
 - [変更履歴](CHANGELOG.md)
 
-## 謝辞とライセンス
+## クレジットとライセンス
+
+UI・制作ワークフローの設計、プロモーション映像のディレクション：[Excifroge](https://github.com/excifroge)
 
 Gacha Directorの基盤や参考となった以下のオープンソースプロジェクトの作者に感謝します。個別の出典は [NOTICE](NOTICE) に記載しています。
 

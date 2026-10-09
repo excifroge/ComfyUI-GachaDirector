@@ -69,6 +69,8 @@ Restart ComfyUI; `Gacha Director v2.1.0: 10 nodes registered` in the log confirm
 
 ## Credits and license
 
+UI and production workflow design, promotional video direction: [Excifroge](https://github.com/excifroge)
+
 Gacha Director builds on and draws from the following open-source projects; thanks to their authors. See [NOTICE](NOTICE) for individual sources.
 
 - [ComfyUI-MiniMaxH3-Director](https://github.com/seesee75-commits/ComfyUI-MiniMaxH3-Director): seesee75 and contributors, GPL-3.0

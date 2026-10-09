@@ -67,7 +67,9 @@ git clone https://github.com/excifroge/ComfyUI-GachaDirector
 - [AGENTS.md](AGENTS.md)：给 AI 的交接文档
 - [更新记录](CHANGELOG.md)
 
-## 致谢与许可
+## 署名、致谢与许可
+
+界面与制作流程设计、宣传片导演：[Excifroge](https://github.com/excifroge)
 
 Gacha Director 基于并借鉴了以下开源项目，感谢它们的作者。各部分的来源见 [NOTICE](NOTICE)。
 
