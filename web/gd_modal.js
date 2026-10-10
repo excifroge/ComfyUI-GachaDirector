@@ -221,10 +221,16 @@ export function createModal({ launcherHost, onOpen, onClose, onPageChange, onLan
     }
   }
 
+  /** Nothing plays on in what is not shown: a clip left playing would go on being heard. */
+  const stopPlaying = (root) => { for (const v of root.querySelectorAll("video, audio")) v.pause(); };
+
   function setPage(name) {
     if (!PAGES.includes(name)) return;
     current = name;
-    for (const p of PAGES) pages[p].hidden = p !== name;
+    for (const p of PAGES) {
+      pages[p].hidden = p !== name;
+      if (p !== name) stopPlaying(pages[p]);
+    }
     paintChrome();
     onPageChange && onPageChange(name);
   }
@@ -238,6 +244,7 @@ export function createModal({ launcherHost, onOpen, onClose, onPageChange, onLan
     onOpen && onOpen();
   }
   function hide() {
+    stopPlaying(overlay);
     overlay.hidden = true;
     open = false;
     histMenu.hidden = true;

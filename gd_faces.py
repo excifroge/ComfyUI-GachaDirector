@@ -395,12 +395,17 @@ def real_cuts(frames, asked: list, soft: list = ()) -> list:
     where it was asked. ``soft`` are the boundaries inside a long take: no cut is asked for
     there and none is looked for (a neighbouring cut, or a quick move, would be taken for
     one). They stay where they are, between the cuts found on either side of them.
+
+    Two boundaries may be given on one frame: a clip that was joined can have a shot of
+    which nothing is left. There are as many answers as boundaries all the same, so that
+    the shots after it keep their numbers.
     """
     from .gd_splice import _stays, frame_changes, real_cut  # noqa: PLC0415
 
     n = int(frames.shape[0])
-    hard = sorted({int(c) for c in asked if 0 < int(c) < n})
-    soft = sorted({int(c) for c in soft if 0 < int(c) < n} - set(hard))
+    marks = sorted([(int(c), 0) for c in asked if 0 < int(c) < n]
+                   + [(int(c), 1) for c in soft if 0 < int(c) < n])
+    hard = sorted({c for c, is_soft in marks if not is_soft})
     found = {}
     if hard:
         changes, small = frame_changes(frames)
@@ -409,8 +414,8 @@ def real_cuts(frames, asked: list, soft: list = ()) -> list:
             at = real_cut(changes, stays, hard, cut, n)
             found[cut] = cut if at is None else at
     out = []
-    for c in sorted(hard + soft):
-        if c in found:
+    for c, _is_soft in marks:
+        if c in found:                 # (a boundary on a cut's frame is where the cut is)
             out.append(found[c])
             continue
         before = max([found[h] for h in hard if h < c], default=0)

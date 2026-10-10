@@ -25,7 +25,8 @@ Design goals, in priority order. When two pull apart, the earlier one wins.
    changed nothing (section 7). Before adding a switch, find out whether it does anything.
 3. **Nothing the user listed is dropped or rewritten silently.** `normalize` completes and clamps a
    document. What it removes: an entry that names no file, a second copy of one image inside one subject,
-   shots that no longer fit a shortened clip (their text moves into the last shot that fits), and the
+   shots that no longer fit a shortened clip (their text moves into the last shot that fits, each on
+   lines of its own, so that a spoken line stays one), and the
    owner of a sound whose subject is no longer there (`audio[].subject` becomes empty; the sound stays).
    `problems` names what cannot run. `gd_compile.build_plan` counts what the planner would send against
    what was listed and raises when it is less.
@@ -58,7 +59,7 @@ through `comfy_execution.graph_utils.GraphBuilder`, no pip dependencies beyond C
 | `example_workflows/` | **generated** by `templates/make_workflows.py` |
 | `docs/` | the user guide (`GUIDE.md`, `GUIDE_ZH.md`, `GUIDE_JA.md`) and the pictures it and the README files show. `docs/zh`, `docs/ja`, `docs/en` hold the same thirteen screenshots each, one set per language: twelve of the panel and `node.jpg` of the node on the canvas. They are taken by a script (section 9) and are retaken when the panel changes. Looping animations serve all three languages: `modes.webp` (six sample clips side by side, one per way of driving the model), `example-edit.webp` (the worked example, source beside result) and `reel-*.webp` (stretches of the feature reel: the steps through the panel, a shot swapped for another take, a seam inside a long take). People are shown clips that play, not strips of frames. The footage in them is credited in `NOTICE`; a picture from any other source needs its licence checked and a line there |
 | `templates/make_workflows.py` | the generator of the example workflows |
-| `tests/` | Python tests, three checks run with Node (JS/Python parity, the run tracker, the panel's material helpers), a driver for a headless browser with one flow through the Edit page, three measurement scripts |
+| `tests/` | Python tests, five checks run with Node (JS/Python parity, the run tracker, the panel's material helpers, its undo stack, its stores), a driver for a headless browser with two flows (the Edit page, the moment a take is queued), three measurement scripts |
 | `tests/_parity_fixtures.json` | **generated**, git-ignored |
 | `LICENSE`, `LICENSES/`, `NOTICE` | GPL-3.0; the Apache-2.0 texts of two upstream projects; what came from where |
 
@@ -98,7 +99,8 @@ One run, step by step:
    document and of the output settings (save prefix `<prefix>_take_<seed>_<batch>`), and calls
    `host.queueWithOverrides` in `gd_director.js`.
 2. `queueWithOverrides` writes the overrides into the node's widgets, calls `app.graphToPrompt()`, restores
-   the widgets and posts the prompt. The take is added to the `gd_takes` store with the prompt id.
+   the widgets and posts the prompt. While the overrides sit in the widgets, the panel reads and writes
+   what the canvas held (`held` in `makeHost`). The take is added to the `gd_takes` store with the prompt id.
    The prompt holds the whole graph, but it is posted with `partial_execution_targets`: this node and
    the output nodes that depend on it (`executionTargets` in `gd_director.js`). Without that every
    output node of the workflow would run with every take, a second director node included (measured:
@@ -210,6 +212,10 @@ What the user builds is decided by the material in the document, not by a mode s
   is read for it).
   Renaming one in place moves no saved value, but breaks all three unless every reader changes with it,
   and prompts already in history keep the old name.
+- The expansion names ComfyUI's own nodes by class (`MiniMaxH3ImageToVideo`, `MiniMaxH3ReferenceToVideo`,
+  `MiniMaxH3AddGuide`, `MiniMaxH3SigmaShift` and the generic ones listed as `CORE` in `tests/test_expand.py`).
+  `gd_director._complete` checks the finished graph against the classes this ComfyUI has and says which is
+  missing; a class that exists with other inputs is not caught there.
 - The node's input names (`model`, `clip`, `vae`, `audio_vae`, `model_turbo`, `sampler`, `sigmas`) and the
   order of `RETURN_NAMES` (links are stored by output index).
 - Node ids in `NODE_CLASS_MAPPINGS`.
@@ -220,7 +226,7 @@ What the user builds is decided by the material in the document, not by a mode s
 | `gd_timeline` | `gd_schema.py` / `web/gd_doc.js` | `schema_version` (8) | `family`, `clip`, `source`, `anchors`, `subjects`, `videos`, `audio`, `prompt`, `mask`, `view`, `derived`, `uid` |
 | `gd_post` | `gd_post.py` / `web/gd_post_doc.js` | `version` (3) | `preview`, `save`, `face` |
 | `gd_presets` | `gd_presets.py` / `web/gd_presets_doc.js` | `version` (2) | `active`, `presets[]` (`id`, `name`, `note`, `takes`, `params`, `history`), `settings` |
-| `gd_takes` | `gd_takes.py` / `web/gd_takes_doc.js` | `version` (2) | `takes[]`, `picks`, `composite`, `refine` |
+| `gd_takes` | `gd_takes.py` / `web/gd_takes_doc.js` | `version` (2) | `takes[]`, `picks`, `composite` (with `frames`, `note` and `starts`, what the join reported: its length, what it did at each join, the frame each shot starts at), `refine` |
 
   `derived` is recomputed by every `normalize` and is never trusted as input: `problems` normalizes
   whatever it is given. Unknown keys survive `normalize`, at the top level (that is how `uid` gets
@@ -495,16 +501,20 @@ afterwards that the planner numbered the pictures in that order.
 In the panel the translation between "a picture of shot 2 used as its first frame" and those records is
 `web/gd_material.js` (pure, tested by `tests/material.mjs`): `useOf` / `setUse` (a change of use may move
 an item from `subjects` to `anchors`; its id changes and every mention is rewritten), `addImage` /
-`addVideo` / `addAudio`, `removeMaterial` (mentions become plain words), `showMentions` / `readMentions`
-(ids to names for a text box and back), `loosenAnchors` + `rehome` (what a cut inserted or removed has
+`addVideo` / `addAudio`, `setFile` (another file for an item; a video a shot carries on from is taken
+from the new file's end, at the length it had), `spokenLine` / `spreadText` (one prompt spread over the
+shots; a spoken line moves whole and stays a line), `removeMaterial` (mentions become plain words), `plainMentions` (the same for
+a text that goes into a document holding only part of the material: the face refine's), `showMentions` /
+`readMentions` (ids to names for a text box and back), `loosenAnchors` + `rehome` (what a cut inserted or removed has
 to call so that anchors stay on their frames and material follows the merged shot), `clipMode` /
 `shotMode` (the read-only "text to video", "first / last frame", ... tags) and `budget`.
 
 **Between the panel and the server.**
 
-- `picks` in the takes store is keyed by **shot index** as a string. `gd_editor.js` `shiftPicks` renumbers
-  them when a cut is inserted or deleted; any new way of adding or removing a shot has to call it, and
-  `loosenAnchors` (and `rehome` for a merge) with it.
+- `picks` in the takes store is keyed by **shot index** as a string, and `face.shots` in the output
+  settings is a list of shot numbers. `gd_editor.js` `shiftPicks` renumbers both when a cut is inserted
+  or deleted; any new way of adding or removing a shot has to call it, and `loosenAnchors` (and `rehome`
+  for a merge) with it.
 - A key typed into a field of the panel is stopped at the window, on its way down, so that ComfyUI never
   sees it (`onKey` in `gd_modal.js`). That keeps it from the field's own `keydown` listeners too. A field
   that needs its keys listens for `gd-key` instead: a `CustomEvent` whose `detail` is the key event
@@ -521,6 +531,18 @@ to call so that anchors stay on their frames and material follows the merged sho
   "cut together" there and shows no megapixels, steps or seed: that run rendered nothing. `<batch>` is a few characters that differ from one press
   of Generate to the next: without it a take that repeats an earlier one exactly is served from
   ComfyUI's cache, the nodes of the expansion report no output, and the take ends "file missing".
+- Which runs the Output page lists (`load` in `web/gd_page_results.js`): of the newest forty of
+  ComfyUI's history, those whose prompt holds this node with this clip's `uid`; and the composite and
+  the face refine the takes store names (`composite.prompt_id`, `refine.prompt_id`), asked for by id
+  when they are not among the forty, since a batch of takes fills that window (takes are counted there,
+  not shown). A prompt holds the whole graph, so a second director node of the workflow is in it too:
+  a run that succeeded and has no output under this node's id (`<id>` or `<id>.…`) is left out as
+  another node's. A run that did not finish has no outputs at all: it is listed when it stopped in this
+  node (the `node_id` of its `execution_error` or `execution_interrupted` message), or when one of the
+  nodes it was asked to run is this node or takes from it (`takesFrom` over the graph the history
+  kept; the nodes asked for are the fifth entry of the history's `prompt`, ComfyUI's
+  `outputs_to_execute`: the panel queues with `partialExecutionTargets`, ComfyUI's Run button asks
+  for every output node, and running one selected save node asks for that node alone).
 - `take.frames` is the clip length the take was rendered at; a take of another length cannot be picked.
   Nothing else invalidates a take: one rendered with an earlier prompt stays pickable, by intent.
   `take.layout` is how the clip was divided into shots at that time (`layout_key(shots)` in
@@ -599,7 +621,7 @@ names contain a dot: `ref_images.ref_image_0`, `ref_videos.ref_video_0`, `ref_vi
 | Project / Edit / Generate / Post / Output (pages) | `run` / `edit` / `takes` / `post` / `results` |
 | Reference model / Base model | `family: "reference"` / `"base"` |
 | Clip | the document; `clip.length`, `clip.aspect` |
-| Resolution (a width and a height) | the preset's `megapixels`; `SIZES` in `web/gd_page_run.js` are the values on offer |
+| Resolution (a width and a height) | the preset's `megapixels`; `SIZES` in `web/gd_page_run.js` are the values on offer, and a value that is none of them exactly is listed as a custom size (the list selects by value, so "near enough" would show the first entry) |
 | Resolution · custom… | `clip.aspect` and the preset's `megapixels` together (`sizeAsRatioAndBudget`) |
 | Shot | `prompt.shots[]` (older code and i18n keys say "segment") |
 | Shared material | material whose `shot` is `""`; the overall description is `prompt.global` |
@@ -625,7 +647,13 @@ names contain a dot: `ref_images.ref_image_0`, `ref_videos.ref_video_0`, `ref_vi
 
 **Units.** Every frame number counts 24 fps frames, 0-based. An anchor's `frame` is derived from its shot;
 in a document of an older version `frame == -1` meant the last frame, and is still read that way.
-Sources at another rate are conformed by `gd_frames.load_frames` (nearest frame in time, no blending).
+Sources at another rate are conformed by `gd_frames.load_frames` (nearest frame in time, no blending; a
+moment exactly between two frames takes the earlier one). So are sources whose frames do not come at even
+intervals, whatever rate the file states (`_even`: the rate its time stamps need differs from its
+average). A clip lasts until its last frame has been shown for its own interval: `frames_at_24` is how
+many frames the loader gives of it, and the probe's `frames24` is that same number. Frames of a clip
+stored lying on its side (a phone's portrait clip) are turned upright (`quarter_turns`), and a clip
+resized to the canvas is resized a few frames at a time (`AT_ONCE`).
 `megapixels` uses 1 MP = 1024 x 1024 pixels, the same as core's `ResolutionSelector`.
 
 ## 6. Module guide
@@ -718,7 +746,7 @@ Sources at another rate are conformed by `gd_frames.load_frames` (nearest frame 
   pieces whose take differs from the one before; `seam_frames` and `hard_cuts` divide them by the
   join. The store only knows what was recorded: a file deleted
   from `output/` is still "done".
-- **`gd_routes.py`** — the four routes (`media`, `plan`, `cuts`, `alike`); `real_cuts(name, asked, total)`; `probe(name)` (frames, fps, size, `frames24`, `audio`), cached by path
+- **`gd_routes.py`** — the four routes (`media`, `plan`, `cuts`, `alike`); `real_cuts(name, asked, total)`; `probe(name)` (a video's frames, fps, upright size, `frames24`, `audio`; a sound's `seconds`), kept per path while time and size stay the same
   and modification time.
 - **`gd_preview.py`** — registers the vendored preview under this package's node id.
 - **`web/gd_director.js`** — the only file that imports from ComfyUI. Custom widgets (`GDGROUP`,
@@ -733,7 +761,10 @@ Sources at another rate are conformed by `gd_frames.load_frames` (nearest frame 
   what is being typed.
 - **`web/gd_material.js`** — material as the panel shows it (section 5). Pure.
 - **`web/gd_timeline.js`, `gd_filmstrip.js`, `gd_player.js`** — the canvas timeline, client-side thumbnails,
-  the frame-accurate player (`offset` maps clip frame 0 to `source.start` in the file).
+  the frame-accurate player (`offset` maps clip frame 0 to `source.start` in the file). On the
+  timeline the boundary taken hold of is the nearest one within reach (`hitTest`), and a boundary
+  reaches at most a third of the way into the shot on that side: a shot of a few frames is narrower
+  than the handles, and keeps both edges and a middle that way.
 - **`web/gd_sequence.js`** — the picks played one after the other, without a render: the preview at the
   top of the Generate page. `load(parts)` takes `[{url, from, length, label}]`, a part without a url
   being a gap (a shot nothing is picked for). Every file has a video element of its own; the part
@@ -854,12 +885,25 @@ Measured with ComfyUI 0.39.0 and its bundled frontend unless stated otherwise.
   up stretches (`state.span`), never last minus first.
 - **`execution_start` can arrive before the queue request returns** when the server is idle. Code that adds
   a record after queueing has to check `state.running` for the prompt id.
+- **A write that only moves the view is laid on the document as it is now.** The timeline draws from a
+  copy it holds for up to 400 ms (`pendingDoc`) and hands that copy to `commitView`; only `view` is
+  taken from it. A structural edit of the timeline (a boundary dragged) still commits its whole copy.
 - **Never write a store back from a copy taken before an `await`.** A take can finish, be picked or be
   deleted during the wait. Every takes action re-reads the store after waiting.
 - **The workflow saved inside an output file is whatever was serialized.** `queueWithOverrides` puts its
   overrides into the widgets before `graphToPrompt()` so that prompt and saved workflow agree, and puts
-  the old values back afterwards — but only into a widget that still holds the override, so a write that
-  landed during the wait stands.
+  the canvas' values back afterwards. In between, every read and write of the panel goes to `held`, the
+  canvas' values, not to the widgets: a write that lands during the wait is made on the clip's own
+  state and is what goes back (`tests/ui_queue_window.mjs`). All widget access of the panel is in
+  `makeHost`; a new accessor has to go through `valueOf` / `setValue` too. The node's own widgets on
+  the canvas (the preset selector, the readout) are not covered. Measured on the front end this was
+  written against (1.53.10): `graphToPrompt()` takes about 1.5 ms and yields to microtasks only (a
+  zero-delay timer set before it never fires before it returns), so no click, key, timer or network
+  answer lands in that moment there. `held` is for a front end where it does.
+- **A workflow opened from an output file is that run's.** A take's file restores the clip as it was
+  queued. A composite's comes with `source.splice` and the seam mask filled in, and a refined clip's
+  with `face.file` and `face.cuts`: `queueTakes` clears the first pair, and `notRefining` the second,
+  from every copy that is not that kind of run.
 - **A time mask does not make a run cheaper.** The model still computes the whole clip and reads every
   shot's prompt; the mask only decides which latent frames may change. `derived.live_shot_indices` is for
   display.
@@ -977,13 +1021,18 @@ python custom_nodes/ComfyUI-GachaDirector/tests/test_splice.py
 # from the package directory
 python tests/test_faces.py
 python tests/test_cuts.py
+python tests/test_frames.py
 python tests/make_parity_fixtures.py
 node --experimental-default-type=module tests/parity.mjs
 node --experimental-default-type=module tests/tracker.mjs
 node --experimental-default-type=module tests/material.mjs
+node --experimental-default-type=module tests/history.mjs
+node --experimental-default-type=module tests/takes.mjs
 
 # with ComfyUI running (nothing is rendered); needs Edge or Chrome
 node --experimental-websocket tests/shot.mjs tests/ui_edit_flow.mjs --lang zh
+node --experimental-websocket tests/shot.mjs tests/ui_queue_window.mjs --lang zh
+node --experimental-websocket tests/shot.mjs tests/ui_corner_cases.mjs --lang zh
 ```
 
 | Suite | Covers |
@@ -994,11 +1043,16 @@ node --experimental-websocket tests/shot.mjs tests/ui_edit_flow.mjs --lang zh
 | `test_expand.py` | vendored file hashes; one expansion per way of driving the model, with node kinds and wiring asserted; the mask through core's resampling. Needs ComfyUI on the path |
 | `parity.mjs` | every fixture case: the JS mirror gives exactly Python's answer, and does not modify its arguments |
 | `test_cuts.py` | `gd_cuts`: finding a cut (the window, also asked by the frames cuts are asked at, a busy frame, a flash, the larger of two), and the plan of a join: both takes allow a frame, neither does, no cut found, one take over several shots, a boundary inside a long take, a stretch squeezed to nothing, what a render must leave alone. Plain Python |
+| `test_frames.py` | `gd_frames.load_frames` and the probe of `gd_routes` on real files it writes with PyAV: a range, a clip that ends early, another frame rate, and clips marked as turned by one, two and three quarter turns (what a phone records), which come out upright, at the upright size, as from ComfyUI's own loader |
 | `test_splice.py` | the two splice nodes on made-up takes: frames and sound stay in step, a silent take, another sample rate, a flash of three and of four blank frames, a shot lit up for five and for six frames (no change at all by this measure), ten frames of another picture and back, a take shorter or longer than the clip, sound that ends before its picture, a cell that holds a real cut is not freed, the face tracker is told the real cuts and leaves a boundary inside a long take where it is, a shot with no frames left keeps its number. The stand-in for the file reader ends files the way the reader does. Needs ComfyUI on the path and torch |
 | `test_faces.py` | face refine without a detector or a model: the track (one face followed, never across a cut, a shot without a face left alone, a face that turns away and comes back, the sizes left alone and the reason given, shots named by the user), the weights around a gap, and that cutting out and putting back gives the frame back. Needs torch |
 | `material.mjs` | `web/gd_material.js`: mentions survive a rename, a change of use and a removal, in every field that may hold one; a name that is the beginning of another; text that goes straight on after a name; a cut inserted or removed loses no material; the mode tags; the reference budget |
 | `ui_edit_flow.mjs` | the Edit page in a real browser, driven by `shot.mjs` (a headless Edge or Chrome over its debugging port): typing `@`, picking a name with the keyboard, the `@` button of a row, changing a use, renaming, a cut and a merge, removing, text typed and not yet committed when the page is drawn again, and the prompt the server compiles. Its expected labels are the Chinese ones |
 | `tracker.mjs` | whose run a preview or a timing belongs to: the run-tracker sections of `web/gd_editor.js`, cut out by their header comments and driven with made-up start, end, progress, preview and reconnect events around a `/queue` whose answers the test releases. If those sections are renamed or use a new name from the rest of the editor, it says so. It does not cover `web/gd_director.js` (`execId`, the listener guard, `noteChange`), the five-second timeout of a question, or the takes actions (`queueTakes` and `refreshTakes` are stand-ins) |
+| `history.mjs` | `web/gd_history.js`: edits of one kind made in quick succession are one step; an edit after an undo leaves nothing to redo |
+| `takes.mjs` | what the panel works out from its stores with no Python twin: the cuts a face refine is told (`refineCuts`: a joined clip's own shot starts, a take's from the document) and the merge of the library's folder list with changes made while it could not be read (`mergeIndex`) |
+| `ui_queue_window.mjs` | the moment a take is queued, in a real browser with the serialization held open and the call to `/prompt` answered by the test: an output setting and a prompt edited meanwhile are the clip's afterwards, nothing of the take's own settings stays in the widgets, and both takes are queued under their own file names and seeds |
+| `ui_corner_cases.mjs` | in a real browser: the right edge of a five-frame shot dragged on a narrow timeline; a custom size near a listed one shown as itself; a take removed while two shots were showing it, and a failed take looked at and removed; the Output page, with `/history` answered by the test, finding the joined clip behind forty takes, leaving out a run of another director node, and listing a run that did not finish only where it was asked for (the node or one behind it) or stopped. Its expected labels are the Chinese ones |
 
 Each script prints "all passed" or the failed checks; there is no test runner and no selection flag: to run
 one case, edit the script. That a flash of a few frames is not taken for a cut is the check "going
@@ -1015,7 +1069,8 @@ A parity failure after a change usually means the other side was not changed (th
 written again first, `tests/make_parity_fixtures.py`; an input no fixture has is not compared at all). A `test_expand.py` failure naming a
 socket usually means a core node changed its inputs.
 
-Of the browser only the Edit page's flow is automated. Verify other panel changes by hand, or with a
+Of the browser only the Edit page's flow and the queueing of takes are automated. Verify other panel
+changes by hand, or with a
 scenario for `shot.mjs` (it can load a workflow, click, type, reload and take screenshots; see its
 header): queue takes, pick, composite, refine a face, open the Output page; and load both example
 workflows. Such scenarios were used while the package was written (a pool of takes made through the
@@ -1086,7 +1141,8 @@ changes every signature, which resets recorded timings once.
 order), the list of ids in `tests/test_schema.py`, a row `run.note.<id>` in `web/gd_i18n.js` (its
 English column equal to the note), regenerate fixtures and example workflows, the user guide. A
 store that already holds presets keeps its own list: workflows saved before the change do not gain the
-new preset. A preset whose model is `turbo` fails to run unless `model_turbo` is wired.
+new preset. A preset whose model is `turbo` fails to run unless `model_turbo` is wired (a composite
+that is only cut together samples nothing and runs either way).
 
 **Add a widget to the node.** Append to `WIDGET_ORDER`, to `INPUT_TYPES` and to the released list in
 `test_widget_order.py`, never insert; give it a default; add the parameter to `GachaDirector.run` (its
@@ -1131,7 +1187,7 @@ in `test_expand.py` asserting node kinds and wiring, and optionally a recipe but
 
 **Change panel text.** `web/gd_i18n.js` only, all three columns, in words a user of the panel would use
 (design goal 6). The user guides and the README files quote panel text: update them, and retake the
-screenshots in `docs/` that show it. `ui_edit_flow.mjs` expects some Chinese labels.
+screenshots in `docs/` that show it. `ui_edit_flow.mjs` and `ui_corner_cases.mjs` expect some Chinese labels.
 
 **Explain a control.** Not on the page. What a control is for is a tooltip: `tip(target, text)` in
 `web/gd_ui.js`, or the `hint` argument of `labeled()` and `section()` there and of the Edit page's own
@@ -1251,6 +1307,12 @@ guarantees.
 | A face refine of a 240-frame clip cut together from a 243-frame document | 240 frames out, sound 10.0 s |
 | Time, one run each: 124 frames at 864 x 480 / 20 steps; 243 frames at the same; 124 frames at 1344 x 768 / 25 steps | 359 s; 983 s; 1613 s |
 | Time, draft (672 x 384, turbo, 4 steps): 243 frames; 362 frames; the join above | about 121 s; 190 s; 196 s |
+| ComfyUI's attention backend in front of the model (`ModelAttentionBackend`, comfy kitchen attention; fp8_scaled checkpoints, same seed, whole run) | text to video, 243 frames, standard preset: 829 s -> 610 s; reference model, 124 frames: 352 -> 292 s; reference model, 362 frames: 1569 -> 1064 s; draft preset (turbo LoRA, 8 steps, 0.25 MP), 243 frames: 193 -> 156 s. In all four pairs the same composition, the same cut frame and no loss that shows; the detail measure of `Tools/r20_quality.py` changed by +2%, +3%, +3% and, on the draft pair, -6% |
+| Sparse attention behind it (`BlockSparseAttention`, sol-attn, node defaults) | 243 frames: 519 s; reference 124 frames: 266 s; reference 362 frames: 853 s. Another take each time, softer (detail -4%, -12%, -2%); in the reference pair the character's face and expression changed, in the 362-frame one a second figure appeared in a wide shot. On a CUDA 12.8 build of PyTorch it stays dense and says so only in the log ("no compiled sol_attn kernel for this GPU"); it runs sparse on a CUDA 13 build. The author looked at these renders and judged it not worth using on the ordinary models: the guide does not suggest it, and it is not to be offered as a setting. (FastH3's own recipe includes the node; that entry of the guide stays) |
+| EasyCache (threshold 0.2) behind the attention backend | 243 frames: 386 s, 8 of 20 steps skipped; visibly softer (detail -14%, motion -14%) |
+| The same renders on PyTorch 2.11 built for CUDA 12.8 and for CUDA 13.0, nothing in front of the model | 848 s and 829 s; with the attention backend 634 s and 610 s |
+| A sound reference set to `fully_copy`, 124 frames, draft, two seeds: how alike the result's sound is to it (loudness envelope in 50 ms steps, Pearson correlation) | a voice as long as the clip (5.17 s): 0.99, 0.99; 5.17 s of music: 0.95, 0.95; the same with the two sound sections saying the sound is reused (the sentences of the upstream planner 0.3.0): the same numbers; 15 s of that music: 0.89, 1.00; 30 s: 0.88, 0.99 (against its first 5.17 s); the whole 110 s handed over as it is: 0.13 and 0.24, and 0.01 and 0.27 with those sentences; the 110 s cut to their first 15 (what the node does now): 1.00, 1.00. A shot's original audio (held in place): 0.98, 0.99 |
+| `app.graphToPrompt()` with a zero-delay timer set just before it, front ends 1.53.10 and 1.57.0 | 1.1 to 2 ms; the timer fired after it returned every time (5 of 5 on each): the serialization yields to microtasks only |
 
 ## 14. Known limits worth knowing before promising a feature
 
@@ -1264,9 +1326,11 @@ guarantees.
 - A clip is one generation window. There is no multi-clip sequence view. Several director nodes can sit
   in one workflow, and takes and composites of one do not run the others; ComfyUI's own Run button runs
   them all in one prompt, and each node's preset records its own share of it.
-- Of the browser, one flow through the Edit page is covered by an automated test, and it needs a running
-  server (`ui_edit_flow.mjs`). The rest of the panel logic that is tested runs outside a browser
-  (`tracker.mjs`, `material.mjs`).
+- Of the browser, three scenarios are covered by automated tests, and they need a running server: one
+  through the Edit page (`ui_edit_flow.mjs`), the moment a take is queued (`ui_queue_window.mjs`) and a
+  few corner cases of the timeline, the size list, the take previews and the Output page (`ui_corner_cases.mjs`).
+  The rest of the panel logic that is tested runs outside a browser (`tracker.mjs`, `material.mjs`,
+  `history.mjs`).
 - Previews are shown and timings recorded by the browser that receives the run's start and end events.
   ComfyUI sends those to the client that queued the prompt and to nobody else (`execution.py`
   `add_message`), and not at all for a prompt queued without a client id. So a run queued through the

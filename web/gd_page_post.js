@@ -15,7 +15,7 @@
 // output settings, which every preset and every clip of the workflow share.
 
 import { t } from "./gd_i18n.js";
-import { createPlayer } from "./gd_player.js";
+import { createPlayer, sound } from "./gd_player.js";
 import { btn, checkbox, el, labeled, noisePercent, number, row, section, select, tip } from "./gd_ui.js";
 import { FPS, canvasSize } from "./gd_doc.js";
 import { SAVE_CODECS, SAVE_FORMATS } from "./gd_post_doc.js";
@@ -29,6 +29,7 @@ export function createPostPage(host) {
 
   // The two players are one comparison: a frame chosen in one is shown in the other, and
   // one plays when the other does.
+  const unwatch = [];              // what stops the watches of the sound switch made here
   function playerFor(key) {
     let p = players.get(key);
     if (!p) {
@@ -40,6 +41,10 @@ export function createPostPage(host) {
           if (source === "user" && o && o.src()) o.seek(f, { silent: true });
         },
       });
+      // The two play together and have the same sound (a refine keeps the clip's): only
+      // the refined one is heard. (The sound switch sets every player's own; this one is
+      // set back each time, after the player's own watcher has run.)
+      if (key === "before") unwatch.push(sound.watch(() => { p.video.muted = true; }));
       p.video.addEventListener("play", () => {
         const o = other();
         if (!o || !o.src() || !o.video.paused) return;
@@ -320,6 +325,7 @@ export function createPostPage(host) {
   return {
     render,
     destroy() {
+      for (const stop of unwatch.splice(0)) stop();
       for (const p of players.values()) p.destroy();
       players.clear();
     },

@@ -242,6 +242,11 @@ check("the face tracker is told the real cuts, not the ones asked for",
       FA.real_cuts(TAKES["a.mp4"][0], [61, 122, 183]), [63, 118, 182])
 check("a cut that is not there stays where it was asked", FA.real_cuts(TAKES["a.mp4"][0], [20]), [20])
 check("no cuts asked, none found", FA.real_cuts(TAKES["a.mp4"][0], []), [])
+# (a joined clip can have a shot of which nothing is left: two boundaries on one frame)
+check("boundaries given twice stay two, so the shots after them keep their numbers",
+      FA.real_cuts(TAKES["a.mp4"][0], [61, 61, 122, 183]), [63, 63, 118, 182])
+check("...also where one of the two is inside a long take",
+      FA.real_cuts(TAKES["a.mp4"][0], [61, 183], [61, 122]), [63, 63, 122, 182])
 # boundaries inside a long take: no cut is looked for there, and they do not narrow the search
 check("a boundary inside a long take stays where it is",
       FA.real_cuts(TAKES["a.mp4"][0], [61, 183], [122]), [63, 122, 182])

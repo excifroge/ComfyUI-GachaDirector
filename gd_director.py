@@ -160,6 +160,35 @@ def file_marks(timeline: str, post_cfg: str = "", resolve=None) -> str:
     return "|".join(marks)
 
 
+def _known_nodes():
+    """The node classes this ComfyUI has, or None where that cannot be asked."""
+    try:
+        import nodes  # noqa: PLC0415 - ComfyUI runtime only
+        return set(nodes.NODE_CLASS_MAPPINGS)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _complete(graph: dict) -> dict:
+    """The expanded graph, once every node in it is one this ComfyUI has.
+
+    The expansion is made of ComfyUI's own MiniMax H3 nodes. An older ComfyUI lacks some
+    of them, and would fail on the first one with nothing but its class name (a KeyError).
+    """
+    known = _known_nodes()
+    missing = sorted({n["class_type"] for n in graph.values()} - known) if known else []
+    if missing:
+        try:
+            import comfyui_version  # noqa: PLC0415 - ComfyUI runtime only
+            have = " %s" % comfyui_version.__version__
+        except Exception:  # noqa: BLE001
+            have = ""
+        raise ValueError(
+            "Gacha Director: this ComfyUI%s has no %s node. The package is made for "
+            "ComfyUI 0.39 or later: update ComfyUI." % (have, ", ".join(missing)))
+    return graph
+
+
 class GachaDirector:
     """A director console for MiniMax H3: one node, any way of driving the model."""
 
@@ -298,7 +327,14 @@ class GachaDirector:
                     "for %d" % (face["file"], have, length))
             short = have if have and have < length else 0
 
-        if params["model"] == "turbo":
+        # A composite whose joins are all cuts is made without the model: nothing of it is
+        # rendered again, so nothing is sampled, and which model the preset names does not
+        # matter to it.
+        # (an experiment may name the latent frames itself: the document key x_free_latents)
+        free_latents = str(d.get("x_free_latents") or "") or ",".join(str(t) for t in dv["free_latents"])
+        cut_only = latent_source == "splice" and not free_latents
+
+        if params["model"] == "turbo" and (model_turbo is not None or not cut_only):
             if model_turbo is None:
                 raise ValueError(
                     "Gacha Director: the preset \"%s\" runs on the turbo model, but nothing "
@@ -349,11 +385,6 @@ class GachaDirector:
         source_audio = None
         latent = empty_latent
         whole = region = drops = None
-        # A composite whose joins are all cuts is made without the model: nothing of it is
-        # rendered again, so nothing is sampled.
-        # (an experiment may name the latent frames itself: the document key x_free_latents)
-        free_latents = str(d.get("x_free_latents") or "") or ",".join(str(t) for t in dv["free_latents"])
-        cut_only = latent_source == "splice" and not free_latents
         if refining:
             # The finished clip at its own size, the face found in it, and the cut-outs of
             # that region at the size this run works at.
@@ -543,5 +574,5 @@ class GachaDirector:
                        None if cut_only else positive,
                        base_model if cut_only else shifted_model,
                        plan["prompt"], run_report),
-            "expand": g.finalize(),
+            "expand": _complete(g.finalize()),
         }

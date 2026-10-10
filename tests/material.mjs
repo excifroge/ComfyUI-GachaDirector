@@ -8,8 +8,8 @@
 
 import { normalize, problemsCoded } from "../web/gd_doc.js";
 import {
-  addAudio, addImage, addVideo, budget, clipMode, freeId, loosenAnchors, mentionable, readMentions,
-  rehome, removeMaterial, setUse, shotMode, showMentions, useOf,
+  addAudio, addImage, addVideo, budget, clipMode, freeId, loosenAnchors, mentionable, plainMentions,
+  readMentions, rehome, removeMaterial, setFile, setUse, shotMode, showMentions, spreadText, useOf,
 } from "../web/gd_material.js";
 
 const failed = [];
@@ -159,6 +159,65 @@ const two = { shots: [{ id: "a", length: 68, text: "" }, { id: "b", length: 56, 
   check("where the clip ends sooner than 22 frames on, the end of the video all the same",
         normalize(z).anchors.map((a) => [a.file, a.frame, a.clip_start, a.clip_length]),
         [["long.mp4", 107, 235, 5], ["run.mp4", 107, 119, 5]]);
+
+  // another file for a video a shot carries on from: its own end, not the old file's
+  const w = draft(normalize({ prompt: two }));
+  const k = addVideo(w, "a", "long.mp4", "continue", { frames24: 240, audio: true });
+  setFile(w, k, "short.mp4", { frames24: 40 });
+  check("a continuation given a shorter file is taken from that file's end",
+        w.anchors.map((a) => [a.file, a.clip_start, a.clip_length, a.with_audio]), [["short.mp4", 18, 22, true]]);
+  const p = addImage(w, "b", "end.png", "last");
+  setFile(w, p, "other.png");
+  check("another file for a picture changes the file and nothing else",
+        w.anchors.filter((a) => a.id === p).map((a) => [a.file, a.at, a.pin]), [["other.png", "last", true]]);
+  // the length somebody chose stays, and the end is counted from where the clip really sits
+  const v = draft(normalize({ prompt: { shots: [{ id: "a", length: 124, text: "" }] },
+    anchors: [{ kind: "clip", file: "old.mp4", shot: "a", at: "first", clip_start: 61, clip_length: 39 },
+              { kind: "clip", file: "old.mp4", shot: "a", at: "offset", offset: 107, clip_start: 95, clip_length: 5 }] }));
+  setFile(v, "k1", "new.mp4", { frames24: 240 });
+  setFile(v, "k2", "new.mp4", { frames24: 240 });
+  check("a continuation given another file keeps its length and ends on that file's last frame",
+        normalize(v).anchors.map((a) => [a.frame, a.clip_start, a.clip_length, a.clip_start + a.clip_length]),
+        [[0, 201, 39, 240], [107, 235, 5, 240]]);
+}
+{
+  // a document made of part of this one's material (a face refine takes one subject along):
+  // what a text names of the rest is said in plain words, as it is when the thing is removed
+  const d = normalize({ family: "reference", prompt: { shots: [{ id: "a", text: "" }] },
+    subjects: [{ images: ["e.png"], name: "ella", description: "the dancer, whose motion comes from @{v1}" },
+               { images: ["f.png"], name: "tall_man" }],
+    videos: [{ file: "run.mp4", shot: "a" }] });
+  check("the names of things left behind become words; what goes along stays a name",
+        plainMentions("@{s1} follows @{s2}, moving like @{v1}. @{zz}", d, ["s1"]),
+        "@{s1} follows tall man, moving like run. ");
+  const alone = normalize({ family: "reference", prompt: { shots: [{ text: "@{s1} smiles." }] },
+    subjects: [{ ...d.subjects[0], description: plainMentions(d.subjects[0].description, d, ["s1"]) }] });
+  check("so a document that holds only that subject names nothing that is not in it",
+        [alone.subjects[0].description, problemsCoded(alone)], ["the dancer, whose motion comes from run", []]);
+}
+
+// ---------------------------------------------------------------- one prompt over the shots
+{
+  const shots = (texts, lengths) => texts.map((text, i) => ({ id: `s${i}`, length: lengths[i], text }));
+  check("sentences in order, each shot a share by its length",
+        spreadText(shots(["One. Two. Three. Four.", ""], [62, 62])), ["One. Two.", "Three. Four."]);
+  check("doing it again changes nothing",
+        spreadText(shots(["One. Two.", "Three. Four."], [62, 62])), ["One. Two.", "Three. Four."]);
+  // what somebody says is a line to the planner: it moves whole and stays a line
+  const said = spreadText(shots(
+    ["A room at night. Rain on the window.\n@ann says quietly: Hello. Are you there?\n@bo says: Goodbye.", "", ""],
+    [40, 40, 44]));
+  const lines = said.join("\n").split("\n");
+  check("spoken lines are neither split at their full stops nor run into other text",
+        lines.filter((l) => l.startsWith("@")), ["@ann says quietly: Hello. Are you there?", "@bo says: Goodbye."]);
+  check("and nothing is lost or repeated",
+        lines.join(" "), "A room at night. Rain on the window. @ann says quietly: Hello. Are you there? @bo says: Goodbye.");
+  check("no shot is left empty while another holds several", said.filter((x) => !x).length, 0);
+  check("shots with no text at all stay as they are", spreadText(shots(["", ""], [62, 62])), ["", ""]);
+  check("text in which no sentence is found is kept, beside a spoken line too",
+        [spreadText(shots(["...", ""], [62, 62])).join("|"),
+         spreadText(shots(["...\n@voice: Hello.", ""], [62, 62])).join("|")],
+        ["|...", "...|@voice: Hello."]);
 }
 
 // ---------------------------------------------------------------- cuts

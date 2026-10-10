@@ -1,5 +1,93 @@
 # Changelog
 
+## 2.1.2
+
+Fixes, and an optional speed-up described in the guide.
+
+### Videos you bring in
+
+- **A clip recorded on a phone is used upright.** A video stored lying on its side with a
+  rotation note was shown upright in the panel and handed to the model on its side, and
+  the "source" aspect took its stored size.
+- **A large source video no longer needs tens of gigabytes of memory.** Frames are brought
+  to the working size a few at a time while the file is read, instead of the whole clip
+  at its own size first.
+- **A clip slower than 24 fps is used to its last frame, at an even pace.** One frame was
+  missing at its end, so a continuation started from a repeated frame, and a 12 fps clip
+  came out with its frames held unevenly. The length shown for a clip at another rate is
+  now the number of frames it really gives.
+- **A clip whose frames are not evenly spaced is placed by its time stamps** even when it
+  averages 24 fps, instead of being read frame by frame.
+- **A continuation given another file is taken from that file's end**, at the length it
+  had. The start frame of the old file was kept and could lie past the end of the new one.
+- **A video replaced by another of the same name and time, but another size, is measured
+  again.**
+
+### Face refine
+
+- **A workflow opened from a face-refined clip generates takes again.** Its output settings
+  still named the clip that was refined, and every take or composite queued from it was
+  run as another face refine, or refused.
+- **Face refine of a joined clip finds its shots.** A clip joined from several takes cuts
+  where those takes cut and can be many frames shorter than the document; the refine
+  looked for the shots where the document has them and could work on another shot than
+  the one chosen, or find none.
+- **Face refine stays on the shots it was asked for when a cut is added or removed.**
+- **Face refine accepts a subject whose description names other material**, as the subject
+  of the "picture + motion video" starting setup does. The run was refused.
+
+### Prompts and shots
+
+- **A sound reference longer than 15 seconds is used for its first 15**, the most the
+  model takes, and the panel says so. Given whole, a long sound set to "Full copy" came
+  out as something else, with nothing saying why. Sound references shorter than 2 seconds,
+  or adding up to more than 15, are warned about.
+- **A voice that is given a description is still its subject's voice.** The description
+  replaced the sentence that says whose voice it is; it now goes beside it.
+- **A shot with nothing written, in front of one that says something, is warned about.**
+  The model is not told of such a shot, and what follows it begins the clip.
+- **Shortening a clip keeps every speaker's line.** The text of shots that no longer fit
+  was run into one line, which made the second speaker's line part of the first one's.
+- **"Distribute prompts" keeps spoken lines.** A spoken line was split at its full stops
+  and run into the narration.
+- **An edit made right after an undo cannot be overwritten by a redo.**
+- **Moving the playhead no longer puts back a prompt edited a moment before.**
+
+### Takes, joining and the library
+
+- **A take is not given up for lost when the queue cannot be asked.** An error answer from
+  the server (restarting, or behind a proxy) was read as an empty queue, and every waiting
+  take was marked missing for good.
+- **Joining takes that only need cutting together no longer asks for the turbo model**
+  when the active preset uses it and nothing is wired to `model_turbo`.
+- **The media library's folders survive a failed read.** When the stored folder list could
+  not be read once, the next change wrote a new list over it.
+- **A file imported while the library window was closed, or reopened for another place,**
+  is no longer put into that other place.
+- **A batch started from a seed above 2^53 no longer repeats a seed.**
+- **An edit made at the very moment a take is queued is kept**, and the take's own file
+  name can no longer stay behind in the output settings.
+- **The Output page still shows the joined clip after a large batch of takes.** It looked
+  at the newest forty runs only, and takes alone could fill them.
+- **The Output page of one director node no longer lists a run made by another** in the
+  same workflow.
+- **A take removed in one shot's row is no longer what another shot shows.** That shot's
+  preview stayed empty.
+
+### Other
+
+- **A clip stops playing when its page is left or the panel is closed.** With the sound
+  on it went on being heard.
+- **The before / after comparison of a face refine plays one sound, not two.**
+- **Both edges of a very short shot can be dragged on the timeline**, and its middle can
+  be clicked. A shot narrower than the handles was all left edge.
+- **A custom size close to one of the listed sizes is shown as itself.** 864 x 480 was
+  shown as the first size of the list, while the clip was rendered at 864 x 480.
+- **An older ComfyUI is told what is missing.** Where ComfyUI lacks one of the MiniMax H3
+  nodes a run needs, the error names the node and says to update ComfyUI.
+- **Guide: an optional speed-up** that is part of ComfyUI itself, the attention backend,
+  and when it can be used.
+
 ## 2.1.1
 
 - **New nodes and example workflows default to two takes per batch.** Existing workflows

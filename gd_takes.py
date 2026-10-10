@@ -47,7 +47,7 @@ def empty() -> dict:
         # ``key`` names the picks the composite was rendered from (:func:`plan_key`), so a
         # composite of earlier picks is never shown as the final clip of the current ones.
         "composite": {"prompt_id": "", "file": "", "status": "", "at": 0, "seed": 0, "key": "",
-                      "frames": 0, "note": ""},
+                      "frames": 0, "note": "", "starts": ""},
         # The final clip with its face refined: one more run over ``of`` (a take's file or
         # the composite's). ``key`` names what it was made from and with, as above.
         "refine": {"prompt_id": "", "file": "", "status": "", "at": 0, "seed": 0, "key": "", "of": ""},
@@ -120,6 +120,10 @@ def normalize(store: Any) -> dict:
         # between two takes can cost a few frames) and what was done at each join
         "frames": _clampi(c.get("frames"), 0, 10 ** 6, 0),
         "note": str(c.get("note") or ""),
+        # and the frame each shot starts at in it, "0,58,120": the cuts of a joined clip
+        # are where its takes had theirs, not where the document asks for them
+        "starts": ",".join(x for x in str(c.get("starts") or "").replace(" ", "").split(",")
+                           if x.isascii() and x.isdigit()),
     }
     r = src.get("refine") if isinstance(src.get("refine"), dict) else {}
     out["refine"] = {

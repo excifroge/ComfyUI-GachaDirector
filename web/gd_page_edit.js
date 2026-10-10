@@ -36,8 +36,8 @@ import {
 } from "./gd_doc.js";
 import {
   AUDIO_USES, IMAGE_USES, VIDEO_USES, addAudio, addImage, addVideo, budget, clipMode, freeId,
-  loosenAnchors, mentionable, readMentions, rehome, removeMaterial, seconds, setUse, shotMode,
-  showMentions, useOf,
+  loosenAnchors, mentionable, readMentions, rehome, removeMaterial, seconds, setFile, setUse, shotMode,
+  showMentions, spokenLine, spreadText, useOf,
 } from "./gd_material.js";
 
 const NAV_MIN_H = 160;             // the navigator never shrinks below this
@@ -278,55 +278,20 @@ export function createEditPage(host) {
       // A spoken line ("@name says: ...") is a line of its own to the planner, so where one
       // meets the other text the two stay on separate lines.
       const parts = [prev.text, cur.text].map((v) => (v || "").trim()).filter(Boolean);
-      const spoken = (line) => /^\s*@[^\s:]+[^:\n]*:\s*\S/.test(line || "");
       const meets = parts.length === 2
-        && (spoken(parts[0].split("\n").pop()) || spoken(parts[1].split("\n")[0]));
+        && (spokenLine(parts[0].split("\n").pop()) || spokenLine(parts[1].split("\n")[0]));
       prev.text = parts.join(meets ? "\n" : " ");
       x.prompt.shots.splice(i, 1);
       x.view.selected_shot = i - 1;
     }, t("h.deleteCut"));
   }
 
-  /**
-   * Spread one long prompt over the shots: sentences in order, each shot taking a share of
-   * the text proportional to its length in frames. The whole-clip description written
-   * before the cuts existed is the normal case — this is how it gets split without
-   * retyping it. Every shot's text is joined first, so running it twice is stable.
-   */
+  /** Spread one long prompt over the shots (gd_material.spreadText). */
   function spreadPrompts() {
     host.patchDoc((x) => {
       const shots = x.prompt.shots;
       if (shots.length < 2) return;
-      const text = shots.map((s) => s.text || "").join(" ").replace(/\s+/g, " ").trim();
-      if (!text) return;
-      const units = (text.match(/[^.!?。！？]+[.!?。！？]+["'”’)\]]*|[^.!?。！？]+$/g) || [text])
-        .map((u) => u.trim()).filter(Boolean);
-      const chars = units.reduce((a, u) => a + u.length, 0) || 1;
-      const total = shots.reduce((a, s) => a + s.length, 0) || 1;
-      // char-space boundaries proportional to frames, then each sentence goes where its
-      // middle falls: order is preserved by construction
-      const bounds = [];
-      let acc = 0;
-      for (const s of shots) { acc += s.length; bounds.push((chars * acc) / total); }
-      const buckets = shots.map(() => []);
-      let pos = 0;
-      for (const u of units) {
-        const mid = pos + u.length / 2;
-        let i = bounds.findIndex((b) => mid < b);
-        if (i < 0) i = shots.length - 1;
-        buckets[i].push(u);
-        pos += u.length + 1;
-      }
-      // A shot left empty while a neighbour holds several reads as a bug, so pull one
-      // across — from the left neighbour's tail or the right one's head, order intact.
-      for (let pass = 0; pass < shots.length; pass++) {
-        for (let i = 0; i < buckets.length; i++) {
-          if (buckets[i].length) continue;
-          if (i > 0 && buckets[i - 1].length > 1) buckets[i].push(buckets[i - 1].pop());
-          else if (i < buckets.length - 1 && buckets[i + 1].length > 1) buckets[i].push(buckets[i + 1].shift());
-        }
-      }
-      shots.forEach((s, i) => { s.text = buckets[i].join(" "); });
+      spreadText(shots).forEach((text, i) => { shots[i].text = text; });
     }, t("h.spread"));
   }
 
@@ -940,7 +905,8 @@ export function createEditPage(host) {
                     audio: ["audio", "gd-audio"] }[kind];
     if (key !== "subjects") {
       g.appendChild(field(t("mat.file"), mediaField(lists[0], it.file,
-        (v) => { if (v) patch((x) => { mine(x).file = v; }); }, lists[1])));
+        (v) => { if (v) patch((x) => setFile(x, it.id, v, kind === "video" ? mediaInfo(v) : null)); },
+        lists[1])));
     }
     if (key === "subjects") {
       g.appendChild(field(t("edit.subjectKind"), select(tr("kind", SUBJECT_KINDS), it.kind,

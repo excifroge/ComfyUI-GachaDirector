@@ -83,6 +83,25 @@ def _frames_of(name: str, probe: Probe | None, fallback: int) -> int:
     return frames if frames > 0 else fallback
 
 
+#: The shortest and the longest sound reference the model takes, in seconds (the model
+#: card: "each clip must be 2-15 seconds long; total duration <= 15 seconds").
+SOUND_LEAST = 2.0
+SOUND_MOST = 15.0
+
+
+def _seconds_of(name: str, probe: Probe | None) -> float:
+    """Length of a sound file in seconds, or 0 when it cannot be read."""
+    if probe is None:
+        return 0.0
+    try:
+        info = probe(name) or {}
+        # (a video can be picked as a sound: its length is its frames at its rate)
+        return float(info.get("seconds") or (float(info.get("frames") or 0) / float(info.get("fps") or 0)
+                                             if info.get("fps") else 0.0))
+    except Exception:  # noqa: BLE001 - an unreadable file is reported when it is loaded
+        return 0.0
+
+
 def labels(doc: dict) -> dict:
     """What every piece of material is called in the prompt: {id: text}.
 
@@ -350,11 +369,23 @@ def to_timeline(doc: dict, *, probe: Probe | None = None) -> dict:
                 "_soundtrack_of": k, "_trim": seg["trimStart"],
             })
         for i, a in enumerate(d["audio"]):
+            # What is written of a sound replaces the planner's own declaration of it. For
+            # somebody's voice that declaration is what says whose voice it is (and carries
+            # the speaker's ID), so there what is written goes beside it, as the note of
+            # the retention line, and the declaration stays.
+            voice = place.get(a["subject"])
+            note = a["note"]
+            if voice and a["desc"].strip():
+                # (a note replaces the planner's own sentence of what the marker means for
+                # this sound: that sentence is kept in front; the label is filled in below)
+                note = " ".join(x for x in (
+                    "{what}", "Voice characteristics: %s." % a["desc"].strip().rstrip("."),
+                    a["note"].strip()) if x)
             audio.append({
                 "id": f"audio{i}", "audioFile": a["file"], "fileName": a["file"],
                 "start": 0, "length": fc, "retention": a["retention"],
-                "refDesc": a["desc"], "refNote": a["note"],
-                "subject": place.get(a["subject"]), "_soundtrack_of": None,
+                "refDesc": "" if voice else a["desc"], "refNote": note,
+                "subject": voice, "_soundtrack_of": None,
             })
 
     return {
@@ -396,6 +427,13 @@ def _task_types(p: dict) -> list[str]:
 
 
 def _run_planner(tl: dict, fc: int) -> dict:
+    # a note that keeps the planner's own sentence in front (see to_timeline) needs the
+    # sound's label, which is its place among the sounds that are sent
+    for i, seg in enumerate(tl["audioSegments"]):
+        if "{what}" in str(seg.get("refNote") or ""):
+            what = plan.retention_note("<Audio %d>" % (i + 1),
+                                       plan.sanitize_retention(seg.get("retention"), audio=True), audio=True)
+            seg["refNote"] = seg["refNote"].replace("{what}", what)
     return plan.plan_timeline(
         tl, 0, fc, FPS,
         use_custom_motion=True,
@@ -462,6 +500,34 @@ def build_plan(doc: dict, *, probe: Probe | None = None) -> dict:
                 p["ref_warnings"] = list(p.get("ref_warnings") or []) + [
                     "%s is shown to the model for its first %d frames (15 seconds), the longest "
                     "reference video it takes" % (v["file"], cap)]
+        # A sound reference longer than the model takes is given to it as its first 15
+        # seconds, as a reference video is. Measured, a sound set to full copy against a
+        # clip of 5 seconds: 5, 15 and 30 seconds of music come out as that music (envelope
+        # correlation 0.88 to 1.00); the whole 110 seconds of it do not (0.01 to 0.27), and
+        # nothing said why. (Half a second over is let pass: a file cut to fifteen seconds
+        # is seldom 15.000.)
+        given = 0.0
+        for seg in p["ref_audio_segs"]:
+            if seg.get("_soundtrack_of") is not None:
+                # (a reference video's soundtrack is an <Audio N> as well: as much of it as
+                # of the video is sent, and it counts toward what the model takes in all)
+                given += float(seg.get("length") or 0) / FPS
+                continue
+            long = _seconds_of(seg.get("audioFile") or "", probe)
+            if long > SOUND_MOST + 0.5:
+                seg["_first"] = SOUND_MOST
+                p["ref_warnings"] = list(p.get("ref_warnings") or []) + [
+                    "%s is %d seconds long: the model is given its first %d (the longest sound "
+                    "reference it takes)" % (seg.get("audioFile"), round(long), SOUND_MOST)]
+            elif 0 < long < SOUND_LEAST:
+                p["ref_warnings"] = list(p.get("ref_warnings") or []) + [
+                    "%s is %.1f seconds long: the model asks for sound references of at least %d "
+                    "seconds" % (seg.get("audioFile"), long, SOUND_LEAST)]
+            given += seg.get("_first") or long
+        if given > SOUND_MOST + 0.5:
+            p["ref_warnings"] = list(p.get("ref_warnings") or []) + [
+                "the sound references add up to %d seconds: the model takes %d in all, and may "
+                "not follow every one of them" % (round(given), SOUND_MOST)]
         cited = p.get("ref_image_slots") or p.get("ref_video_segs") or p.get("ref_audio_segs")
         # with nothing to refer to the planner writes the three plain fields, no summary
         if d["prompt"]["mode"] == "structured" and cited and not tl["summary"]:
@@ -472,6 +538,25 @@ def build_plan(doc: dict, *, probe: Probe | None = None) -> dict:
                 "used for"]
     else:
         tasks = [p.get("mode") or "t2va"]
+    if d["prompt"]["mode"] == "structured":
+        # The planner writes only the shots that say something. One with nothing written,
+        # in front of one that does, is left out, and what was to begin after it begins the
+        # clip: the cut the timeline shows there is not asked for.
+        written = _written(d)
+        takes = _long_takes(d)
+        says = [any(s["id"] in written for s in take) for take in takes]
+        for n, take in enumerate(takes):
+            if not says[n] and any(says[n + 1:]):
+                number = d["prompt"]["shots"].index(take[0]) + 1
+                if any(says[:n]):
+                    # the shot before it runs on until the next written one, at its time
+                    why = "shot %d has nothing written: the model is not told of it" % number
+                else:
+                    later = next(t for t, yes in zip(takes[n + 1:], says[n + 1:]) if yes)
+                    why = ("shot %d has nothing written: the model is not told of it, and what "
+                           "shot %d says is not held back until %.2f s"
+                           % (number, d["prompt"]["shots"].index(later[0]) + 1, later[0]["start"] / FPS))
+                p["ref_warnings"] = list(p.get("ref_warnings") or []) + [why]
     if d["family"] == "reference":
         # the labels written into the text were counted here; the planner counts again
         promised = [r["anchor"]["file"] for r in _records(d) if "anchor" in r]
@@ -542,8 +627,9 @@ def ref_videos(p: dict) -> list[dict]:
 
 
 def ref_audio(p: dict) -> list[dict]:
-    """Standalone reference audio, [{"file"}], in the order core will label it."""
-    return [{"file": seg.get("audioFile") or ""}
+    """Standalone reference audio, [{"file", "first"}], in the order core will label it.
+    ``first``: how many seconds of it are given (0: all of it)."""
+    return [{"file": seg.get("audioFile") or "", "first": float(seg.get("_first") or 0.0)}
             for seg in p.get("ref_audio_segs") or [] if seg.get("_soundtrack_of") is None]
 
 

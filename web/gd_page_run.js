@@ -219,7 +219,9 @@ export function createRunPage(host) {
       t("run.timeTip"));
     s1.appendChild(facts);
 
-    const known = SIZES.find(([mp]) => Math.abs(mp - p.megapixels) < 0.005);
+    // (one of the sizes on offer, exactly: the list selects by value, and a size typed
+    // in that comes out near one of them, 864 x 480 at 0.396 MP say, is a size of its own)
+    const known = SIZES.find(([mp]) => Math.abs(mp - p.megapixels) < 1e-9);
     const sizes = SIZES.map(([mp, key]) => {
       const [w, h] = canvasSize(doc.clip.aspect, mp, info);
       return [mp, `${w} × ${h}　${t(`run.size.${key}`)}`];

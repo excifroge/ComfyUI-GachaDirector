@@ -178,11 +178,12 @@ Connect these nodes upstream of `model` / `model_turbo`:
 - **LoRA and acceleration LoRA**: `LoraLoaderModelOnly`.
 - **Fun ControlNet Union**: `ModelPatchLoader` + `Apply MiniMax H3 Fun ControlNet`, with the output connected to `model` (and to `model_turbo` when using `Draft`). Use a 24 fps control video aligned with the clip's first frame.
 - **FastH3**: `UNETLoader` → `ModelAttentionBackend` → `BlockSparseAttention`, connected to `model`; set the preset's steps to 8 and schedule shifts to 10 / 3.
+- **Faster generation**: `ModelAttentionBackend` (displayed as Model Attention Backend, experimental). Select `comfy kitchen attention` as the backend. It can speed up generation with usually only small visual changes. Do not currently use this backend with int8-convrot models; it causes an error. When using `Draft`, connect one on the `model_turbo` branch too.
 
 ## Known limitations
 
 - Each node produces one clip, typically 5–15 seconds; use continuation for longer sequences.
-- Reference limits across all shots and shared media: 9 pictures, 3 videos, 3 audio clips, and 12 files in total; reference videos must total no more than 15 seconds.
+- Reference limits across all shots and shared media: 9 pictures, 3 videos, 3 audio clips, and 12 files in total; reference videos must total no more than 15 seconds. Each audio reference should be 2–15 seconds long; only the first 15 seconds of a longer one are used.
 - Each take is generated as a complete clip; use **Partial redraw** for local changes to existing video.
 - The model determines cut timing, which may drift; precise event timing within a long take cannot be specified.
 - Dissolves, whip pans, or similar-looking shots may affect cut detection; check joins and the actual clip length after joining.

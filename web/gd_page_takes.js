@@ -664,6 +664,9 @@ export function createTakesPage(host) {
       const view = el("div", "gd-takeview");
       view.appendChild(player.el);
       bodyRow.appendChild(view);
+      // (a take that is looked at in one shot may have been removed from another's row; one
+      // that failed or is still waiting can be looked at, which is how it is removed)
+      if (viewing.has(si) && !takes.takes.some((x) => x.id === viewing.get(si))) viewing.delete(si);
       const viewId = viewing.get(si) || pickId || (done[0] || {}).id || "";
       const viewTake = takes.takes.find((x) => x.id === viewId);
       // What can be done with the take the player shows, as a whole: a take is a render of

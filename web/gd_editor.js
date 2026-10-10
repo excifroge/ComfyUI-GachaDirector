@@ -20,17 +20,18 @@ import { t, getLang } from "./gd_i18n.js";
 import { createModal, PAGES } from "./gd_modal.js";
 import { createHistory } from "./gd_history.js";
 import { fileKind } from "./gd_ui.js";
-import { createLibrary, normalizeIndex } from "./gd_library.js";
+import { createLibrary, mergeIndex, normalizeIndex } from "./gd_library.js";
 import {
   cellsLatents, latentBounds, normalize, seamAuto, seamCells, seamLatents, SEAM_MOST,
 } from "./gd_doc.js";
+import { plainMentions } from "./gd_material.js";
 import { normalizePost } from "./gd_post_doc.js";
 import {
   activePreset, clearHistory, normalizeParams, normalizePresets, paramSummary, paramsSignature,
   recordRun,
 } from "./gd_presets_doc.js";
 import {
-  addTake, hardCuts, layoutKey, normalizeTakes, pickAll, pickTake, planKey, removeTake, seamFrames,
+  addTake, hardCuts, layoutKey, normalizeTakes, pickAll, pickTake, planKey, refineCuts, removeTake, seamFrames,
   singleTake,
   splicePlan,
   updateTake,
@@ -268,12 +269,19 @@ export function createEditor(host) {
     return "";
   }
 
-  /** Prompt ids the server still has in its queue, running or waiting. */
+  /** Prompt ids the server still has in its queue, running or waiting. Throws when the
+   *  answer is not the queue (an error from a server that is restarting, or from what
+   *  stands in front of it): that says nothing about what is queued, and a take must not
+   *  be given up for lost on it. */
   async function queuedPromptIds() {
     const ids = new Set();
     const res = await fetch(host.apiUrl("/queue"), { cache: "no-store" });
+    if (!res.ok) throw new Error(`queue: HTTP ${res.status}`);
     const data = await res.json();
-    for (const item of [...(data.queue_running || []), ...(data.queue_pending || [])]) {
+    if (!data || !Array.isArray(data.queue_running) || !Array.isArray(data.queue_pending)) {
+      throw new Error("queue: not a queue");
+    }
+    for (const item of [...data.queue_running, ...data.queue_pending]) {
       if (item && item[1]) ids.add(String(item[1]));
     }
     return ids;
@@ -294,7 +302,8 @@ export function createEditor(host) {
         return null;
       };
       return { status: ok ? (file ? "done" : "missing") : "failed", file,
-               frames: Number(said("gd_frames")) || 0, note: String(said("gd_cuts") || "") };
+               frames: Number(said("gd_frames")) || 0, note: String(said("gd_cuts") || ""),
+               starts: String(said("gd_starts") || "") };
     }
     // not finished and not queued either: cleared from the queue, or the server restarted
     if (queued && !queued.has(promptId) && !state.running.has(promptId)) return { status: "missing", file: "" };
@@ -638,6 +647,14 @@ export function createEditor(host) {
   /** What a face refine was made from and with: the clip, every setting that shapes it, the
    *  subject as it is now (its pictures and description go into the run), where the shots
    *  are cut, and the preset the region is generated with. */
+  /** Output settings for a run that is not a face refine. A refine is marked by the clip
+   *  it works on (`face.file`), which the panel only ever puts into the copy it queues; a
+   *  workflow opened from a refined clip's file comes with it filled in. */
+  function notRefining(c) {
+    c.face.file = "";
+    c.face.cuts = "";
+    return c;
+  }
   function refineKey(file, f) {
     const d = doc();
     const who = d.subjects.find((s) => s.id === f.subject);
@@ -645,7 +662,9 @@ export function createEditor(host) {
     // marked as when the run is queued. A clip of cuts only keeps the key it had.)
     const made = [
       d.family, d.prompt.shots.slice(1).map((s) => `${s.start}${s.join === "continuous" ? "~" : ""}`).join(","),
-      who ? JSON.stringify([who.images, who.description, who.short_name, who.kind, who.retention]) : "",
+      // (the description as the refine is given it: with what it names in plain words)
+      who ? JSON.stringify([who.images, plainMentions(who.description, d, [who.id]), who.short_name,
+                            who.kind, who.retention]) : "",
       paramsSignature(activePreset(presets()).params),
     ].join("|");
     return [file, f.strength, f.padding, f.feather, f.min_score, f.subject, f.text, f.shots, made].join("#");
@@ -705,7 +724,11 @@ export function createEditor(host) {
         const c = post();
         const store = presets();        // frozen: every take of the batch runs these settings
         const p = activePreset(store);
-        const base = Number(host.getWidget("seed")) || 0;
+        // (the widget takes seeds up to 2^64, a number counts exactly up to 2^53: past
+        // that, seed + 1 is seed again and two takes of a batch would be one. A batch
+        // that has no room below that starts over from 0.)
+        const typed = Number(host.getWidget("seed")) || 0;
+        const base = typed > Number.MAX_SAFE_INTEGER - n ? 0 : typed;
         const tl = JSON.parse(JSON.stringify(d));
         delete tl.derived;
         tl.source.splice = [];
@@ -720,6 +743,7 @@ export function createEditor(host) {
         for (let k = 0; k < n; k++) {
           const seed = base + k;
           const postK = JSON.parse(JSON.stringify(c));
+          notRefining(postK);
           postK.save.auto_save = true;
           postK.save.filename_prefix = `${c.save.filename_prefix}_take_${seed}_${batch}`;
           let pid = "";
@@ -782,6 +806,7 @@ export function createEditor(host) {
         const seed = Number(host.getWidget("seed")) || 0;
         const tl = compositeDoc(d, plan);
         const c = post();
+        notRefining(c);
         c.save.auto_save = true;
         c.save.filename_prefix = `${c.save.filename_prefix}_composite_${seed}`;
         let pid = "";
@@ -841,15 +866,15 @@ export function createEditor(host) {
           schema_version: d.schema_version, uid: d.uid, family: d.family,
           clip: { length: frames, aspect: "1:1" },
           prompt: { mode: "structured", shots: [{ id: "face", length: 0, text }] },
-          subjects: who ? [{ ...who, shot: "" }] : [],
+          // only this subject goes along: what its description names of the rest of the
+          // clip (the video its movement comes from, say) is said in plain words here
+          subjects: who ? [{ ...who, shot: "", description: plainMentions(who.description, d, [who.id]) }] : [],
         };
         const key = refineKey(file, f);
         c.save.auto_save = true;
         c.save.filename_prefix = `${c.save.filename_prefix}_refine_${seed}`;
         c.face.file = file;
-        // "~": the shot goes on from the one before, there is no cut to look for there
-        c.face.cuts = d.prompt.shots.slice(1)
-          .map((s) => `${s.start}${s.join === "continuous" ? "~" : ""}`).join(",");
+        c.face.cuts = refineCuts(d.prompt.shots, takes().composite, file);
         let pid = "";
         try {
           pid = await host.queueWithOverrides({ timeline: tl, post: c, seed, preset: p.id,
@@ -936,6 +961,24 @@ export function createEditor(host) {
       }
       tk.picks = next;
       commitTakes(tk);
+      // The shots a face refine is asked for are shot numbers too (from 1). Both halves of
+      // a split shot stay asked for; of two that are merged, the one that is left is.
+      const c = post();
+      const asked = c.face.shots.split(",").filter(Boolean).map(Number);
+      if (asked.length) {
+        const moved = new Set();
+        for (const n of asked) {
+          const i = n - 1;
+          if (kind === "split") {
+            moved.add(i > at ? n + 1 : n);
+            if (i === at) moved.add(n + 1);
+          } else {
+            moved.add(i >= at ? n - 1 : n);
+          }
+        }
+        c.face.shots = [...moved].sort((a, b) => a - b).join(",");
+        host.writePost(normalizePost(c));
+      }
     },
   };
 
@@ -1240,21 +1283,48 @@ export function createEditor(host) {
 
   // The library's folders: one list for every workflow, kept with the user's ComfyUI data
   // (ComfyUI's own store for such files). A folder is an entry there and nothing on disk.
+  //
+  // The stored list is written whole, so it is only written once it has been read: a
+  // read that failed (the server busy, a connection dropped) is not "no folders yet", and
+  // writing a list made on top of that would wipe the folders that are there.
   const LIBRARY_FILE = "gachadirector.library.json";
   let libraryTimer = 0;
-  async function loadLibraryIndex() {
-    try {
-      const res = await fetch(host.apiUrl(`/userdata/${LIBRARY_FILE}`), { cache: "no-store" });
-      state.libraryIndex = res.ok ? normalizeIndex(await res.json()) : normalizeIndex(null);
-    } catch (e) { state.libraryIndex = normalizeIndex(null); }
-    if (state.library) state.library.repaint();
+  let libraryRead = false;         // the stored list has been read, or found not to exist yet
+  let libraryEdited = false;       // something was changed here before that
+  let libraryReading = null;       // the read that is under way: one at a time
+  function loadLibraryIndex() {
+    if (libraryRead) return Promise.resolve();
+    if (!libraryReading) {
+      libraryReading = (async () => {
+        try {
+          const res = await fetch(host.apiUrl(`/userdata/${LIBRARY_FILE}`), { cache: "no-store" });
+          if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+          const stored = res.ok ? await res.json() : null;  // 404: nothing was ever stored
+          // what was changed here meanwhile was changed on nothing: it goes on top of what
+          // is stored. From here on the list here is the list, and nothing read later may
+          // be laid over it (it would bring back a folder removed since).
+          state.libraryIndex = libraryEdited ? mergeIndex(stored, state.libraryIndex) : normalizeIndex(stored);
+          libraryRead = true;
+          libraryEdited = false;
+        } catch (e) {
+          if (!state.libraryIndex) state.libraryIndex = normalizeIndex(null);
+        }
+        libraryReading = null;
+        if (state.library) state.library.repaint();
+      })();
+    }
+    return libraryReading;
   }
   function saveLibraryIndex(index) {
     state.libraryIndex = index;
+    if (!libraryRead) libraryEdited = true;
     clearTimeout(libraryTimer);
-    libraryTimer = setTimeout(() => {
+    libraryTimer = setTimeout(async () => {
+      if (!libraryRead) await loadLibraryIndex();           // (which keeps what was changed here)
+      if (!libraryRead) return;                             // still not readable: nothing is written
       fetch(host.apiUrl(`/userdata/${LIBRARY_FILE}?overwrite=true`), {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(index),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.libraryIndex),
       }).catch((e) => console.error("GachaDirector library", e));
     }, 300);
   }
@@ -1297,7 +1367,15 @@ export function createEditor(host) {
       // View-only writes (playhead, zoom, selection while scrubbing): the widget is
       // updated so the next patch sees them, but nothing goes into the undo history and
       // no page re-renders — a player pausing must not rebuild every textarea.
-      commitView: (d) => { host.writeDocument(normalize(d)); host.markDirty(); },
+      // (the timeline hands over the document it has been drawing, which may be a moment
+      // old: only where the playhead and the zoom are is taken from it, so that an edit or
+      // an undo made in that moment stands)
+      commitView: (d) => {
+        const now = normalize(host.readDocument());
+        now.view = normalize(d).view;
+        host.writeDocument(normalize(now));      // (the playhead and the selection fitted to it)
+        host.markDirty();
+      },
       setPlayhead: (f) => {
         const d = normalize(host.readDocument());
         if (d.view.playhead === f) return;

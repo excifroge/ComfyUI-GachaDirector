@@ -472,7 +472,9 @@ def _norm_shots(shots: Any, frame_count: int, moved: dict | None = None) -> list
     Lengths are honoured where they fit, clamped to ``MIN_SHOT``, and the last shot absorbs
     any remainder. A document with no shots gets one covering the whole clip. When a clip
     is shortened until some shots no longer fit, their text moves into the last shot that
-    does: a paragraph of prompt is never lost to a change of length. ``moved`` receives
+    does, on lines of its own: a paragraph of prompt is never lost to a change of length,
+    and a spoken line stays a line (run into another, it would be read as part of what the
+    other speaker says). ``moved`` receives
     {id of a shot that no longer fits: id of the shot its text went to}, so the material of
     those shots can follow.
     """
@@ -490,7 +492,7 @@ def _norm_shots(shots: Any, frame_count: int, moved: dict | None = None) -> list
         if left < MIN_SHOT:
             if out:
                 rest = [str(x.get("text") or "").strip() for x in raw[i:]]
-                out[-1]["text"] = " ".join(t for t in [out[-1]["text"].strip()] + rest if t)
+                out[-1]["text"] = "\n".join(t for t in [out[-1]["text"].strip()] + rest if t)
                 if moved is not None:
                     for gone in ids[i:]:
                         moved[gone] = out[-1]["id"]

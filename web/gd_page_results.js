@@ -41,6 +41,20 @@ function runKind(prefix) {
   return "run";
 }
 
+/** Is `from` the node `id`, or does it take anything from it, however far back? (`prompt`:
+ *  the graph of a history entry, node id -> {inputs}; a link is [node id, output index].) */
+export function takesFrom(prompt, from, id) {
+  const seen = new Set();
+  const walk = (nid) => {
+    if (nid === id) return true;
+    if (seen.has(nid)) return false;
+    seen.add(nid);
+    return Object.values((prompt[nid] && prompt[nid].inputs) || {}).some(
+      (v) => Array.isArray(v) && v.length === 2 && prompt[String(v[0])] && walk(String(v[0])));
+  };
+  return walk(String(from));
+}
+
 export function createResultsPage(host) {
   const root = host.container;
   const st = { entries: [], loading: false, error: "", hiddenTakes: 0 };
@@ -56,9 +70,20 @@ export function createResultsPage(host) {
     st.loading = true; st.error = ""; render();
     try {
       const res = await fetch(host.apiUrl("/history?max_items=40"), { cache: "no-store" });
-      const hist = await res.json();
+      const hist = (await res.json()) || {};
+      // The newest runs are a window of forty, and a batch of takes fills it: the clip
+      // that was joined before them, and its face refine, are asked for by name. (The
+      // takes page keeps the ids of both.)
+      const tk = host.takes ? host.takes() : null;
+      for (const pid of tk ? [tk.composite.prompt_id, tk.refine.prompt_id] : []) {
+        if (!pid || hist[pid]) continue;
+        try {
+          const one = await (await fetch(host.apiUrl(`/history/${encodeURIComponent(pid)}`), { cache: "no-store" })).json();
+          if (one && one[pid]) hist[pid] = one[pid];
+        } catch (e) { /* gone from the history: nothing to show of it */ }
+      }
       const rows = [];
-      for (const [pid, entry] of Object.entries(hist || {})) {
+      for (const [pid, entry] of Object.entries(hist)) {
         const prompt = entry?.prompt?.[2] || {};
         // This clip's runs: the node with this node's id, running this clip's document.
         // (Two workflows can both have a node 10; the document's uid tells them apart. A
@@ -102,9 +127,22 @@ export function createResultsPage(host) {
           }
         }
         const own = entry?.outputs?.[nodeId] || {};
+        // The prompt holds the whole graph, this node included, whichever director node
+        // it was queued for. A run that went well and has nothing of this node's in its
+        // outputs was another node's. One that failed has no outputs at all: it is this
+        // node's when it stopped in this node, or when this node was among those asked to
+        // run (the fifth entry of the queue item; all output nodes for ComfyUI's Run).
+        // Asked to run: the node itself, or a node that takes from it (running only a
+        // save node behind it asks for that one alone). Stopped: by an error, or by hand.
+        const messages = entry?.status?.messages || [];
+        const mine = (key) => key === nodeId || key.startsWith(`${nodeId}.`) || key.startsWith(`${nodeId}:`);
+        const stoppedIn = String(messages.find((m) => m[0] === "execution_error" || m[0] === "execution_interrupted")?.[1]?.node_id ?? "");
+        const ranHere = Object.keys(entry?.outputs || {}).some(mine) || mine(stoppedIn);
+        const asked = Array.isArray(entry?.prompt?.[4]) ? entry.prompt[4].map(String) : null;
+        const wentWell = (entry?.status?.status_str || "") === "success";
+        if (!ranHere && (wentWell || (asked && !asked.some((id) => takesFrom(prompt, id, nodeId))))) continue;
         const report = String((own.gd_report || [])[0] || "");
         const compiled = String((own.gd_prompt || [])[0] || "");
-        const messages = entry?.status?.messages || [];
         const started = messages.find((m) => m[0] === "execution_start")?.[1]?.timestamp;
         const ended = messages.find((m) => m[0] === "execution_success")?.[1]?.timestamp;
         rows.push({

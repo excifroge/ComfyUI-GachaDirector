@@ -57,9 +57,97 @@ check("shots are clamped and keep room for the next",
 # a clip shortened until shots no longer fit keeps their words in the last shot that does
 d = S.normalize({"clip": {"length": 22}, "prompt": {"shots": [
     {"text": w, "length": 5} for w in ("one", "two", "three", "four", "five", "six")]}})
-check("shots that no longer fit give their text to the last one",
-      (len(d["prompt"]["shots"]), d["prompt"]["shots"][-1]["text"]), (4, "four five six"))
+check("shots that no longer fit give their text to the last one, each on a line of its own",
+      (len(d["prompt"]["shots"]), d["prompt"]["shots"][-1]["text"]), (4, "four\nfive\nsix"))
 check("and that is stable", S.normalize(d)["prompt"]["shots"], d["prompt"]["shots"])
+# which is what keeps two speakers two: run together, the second line would be read as more
+# of what the first one says
+d = S.normalize({"family": "reference", "clip": {"length": 22},
+                 "subjects": [{"images": ["a.png"], "name": "ann"}, {"images": ["b.png"], "name": "bo"}],
+                 "prompt": {"shots": [{"text": "A room.", "length": 5}, {"text": "", "length": 5},
+                                      {"text": "", "length": 5}, {"text": "@{s1} says: Hello.", "length": 5},
+                                      {"text": "@{s2} says: Goodbye.", "length": 5}]}})
+# a sound reference longer than the model takes is given as its first 15 seconds; its length
+# comes from the probe
+long = {"family": "reference", "clip": {"length": 124},
+        "subjects": [{"images": ["a.png"], "name": "ann"}],
+        "audio": [{"file": "score.wav", "retention": "fully_copy"}],
+        "prompt": {"shots": [{"text": "@{s1} reads by the window."}]}}
+
+
+def sounds(doc, lengths):
+    """(the warnings about sound lengths, what each sound reference is cut to)."""
+    p = C.build_plan(doc, probe=lambda name: lengths.get(name, {}))
+    return ([w for w in p.get("ref_warnings") or [] if "seconds" in w and "sound" in w],
+            [x["first"] for x in C.ref_audio(p)])
+
+
+check("a sound of 110 seconds: its first 15 are given, and the plan says so",
+      sounds(long, {"score.wav": {"seconds": 110.2}}),
+      (["score.wav is 110 seconds long: the model is given its first 15 (the longest sound reference it takes)"],
+       [15.0]))
+check("a sound of 15 seconds, or one whose length is not known, is given whole",
+      (sounds(long, {"score.wav": {"seconds": 15.2}}), sounds(long, {})), (([], [0.0]), ([], [0.0])))
+check("a video picked as a sound is measured by its frames",
+      sounds(long, {"score.wav": {"frames": 3300, "fps": 30.0, "frames24": 2640}})[1], [15.0])
+check("a sound shorter than the model asks for is said to be",
+      sounds(long, {"score.wav": {"seconds": 1.2}}),
+      (["score.wav is 1.2 seconds long: the model asks for sound references of at least 2 seconds"], [0.0]))
+three = {**long, "audio": [{"file": "a.wav"}, {"file": "b.wav"}, {"file": "c.wav"}]}
+check("what is added up is what is sent: a sound let pass at 15.4 seconds counts as 15.4",
+      sounds({**long, "audio": [{"file": "a.wav"}, {"file": "b.wav"}]},
+             {"a.wav": {"seconds": 15.4}, "b.wav": {"seconds": 2.2}})[0],
+      ["the sound references add up to 18 seconds: the model takes 15 in all, and may not follow every "
+       "one of them"])
+check("sounds that add up to more than the model takes in all are said to",
+      sounds(three, {n: {"seconds": 8.0} for n in ("a.wav", "b.wav", "c.wav")}),
+      (["the sound references add up to 24 seconds: the model takes 15 in all, and may not follow every "
+        "one of them"], [0.0, 0.0, 0.0]))
+text = C.build_plan(long)["prompt"]
+check("a copied sound is declared and marked as the planner does it (measured to be enough)",
+      ("<Audio 1>: fully_copy - <Audio 1> is reused as the target video's complete final audio track." in text,
+       "non_diegetic_music: N/A" in text), (True, True))
+
+# a voice that is described is still its subject's voice
+voiced = {"family": "reference", "clip": {"length": 124},
+          "subjects": [{"images": ["a.png"], "name": "ann"}],
+          "audio": [{"file": "voice.wav", "subject": "s1", "desc": "a deep measured voice"}],
+          "prompt": {"shots": [{"text": "@{s1} looks up.\n@{s1} says: Hello."}]}}
+text = C.build_plan(voiced)["prompt"]
+check("a described voice keeps its speaker, and the description is in the prompt",
+      ("<Audio 1> is the voice-timbre reference for <Subject 1> (S1)." in text,
+       "<Audio 1> (voice of <Subject 1>): reference - the target follows <Audio 1> without copying "
+       "the original signal. Voice characteristics: a deep measured voice." in text), (True, True))
+# a shot with nothing written in front of one that says something is left out of the prompt
+gap = {"family": "base", "clip": {"length": 124},
+       "prompt": {"shots": [{"length": 60, "text": ""}, {"length": 64, "text": "She sits."}]}}
+check("an empty shot before a written one is warned about, with the time that is lost",
+      [w for w in C.build_plan(gap).get("ref_warnings") or [] if "nothing written" in w],
+      ["shot 1 has nothing written: the model is not told of it, and what shot 2 says is not "
+       "held back until 2.50 s"])
+check("an empty shot after the written ones is nothing to warn about",
+      [w for w in C.build_plan({**gap, "prompt": {"shots": [{"length": 60, "text": "She sits."},
+                                                            {"length": 64, "text": ""}]}}).get("ref_warnings") or []
+       if "nothing written" in w], [])
+check("an empty shot between two written ones is left out, and the later one keeps its time",
+      ([w for w in C.build_plan({**gap, "prompt": {"shots": [
+          {"length": 40, "text": "She sits."}, {"length": 40, "text": ""},
+          {"length": 44, "text": "She stands."}]}}).get("ref_warnings") or [] if "nothing written" in w],
+       "[Shot 2] At 00:03.333" in C.build_plan({**gap, "prompt": {"shots": [
+           {"length": 40, "text": "She sits."}, {"length": 40, "text": ""},
+           {"length": 44, "text": "She stands."}]}})["prompt"]),
+      (["shot 2 has nothing written: the model is not told of it"], True))
+check("nor is a stretch that goes on from one that is written",
+      [w for w in C.build_plan({**gap, "prompt": {"shots": [
+          {"length": 40, "text": "She sits."}, {"length": 40, "text": "", "join": "continuous"},
+          {"length": 44, "text": "She stands."}]}}).get("ref_warnings") or [] if "nothing written" in w], [])
+text = C.build_plan({**voiced, "audio": [{"file": "rain.wav", "desc": "steady rain on a tin roof"}]})["prompt"]
+check("a sound that is nobody's voice is declared as it is described",
+      "<Audio 1> is steady rain on a tin roof." in text, True)
+
+said = C.build_plan(d)["prompt"]
+check("two speakers whose shots were merged still speak one line each",
+      (said.count("<d>"), "Goodbye" in said.split("Hello.")[1].split("</d>")[0]), (2, False))
 
 # anchors
 d = S.normalize({"family": "base", "anchors": [
@@ -295,7 +383,7 @@ ok("reference: the soundtrack is <Audio 1>, the voice <Audio 2>",
    in p["prompt"] and "<Audio 2> is the voice-timbre reference for <Subject 1>" in p["prompt"])
 check("reference: videos in label order", [(v["file"], v["audio"]) for v in C.ref_videos(p)],
       [("src.mp4", True), ("move.mp4", False)])
-check("reference: standalone audio only", C.ref_audio(p), [{"file": "voice.wav"}])
+check("reference: standalone audio only, given whole", C.ref_audio(p), [{"file": "voice.wav", "first": 0.0}])
 check("reference: pictures", C.ref_images(p), [{"file": "hero.png", "keyframe": False}])
 
 p = C.build_plan({**ref, "source": {**ref["source"], "role": "continue", "audio": False},

@@ -50,7 +50,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/excifroge/ComfyUI-GachaDirector
 ```
 
-重启 ComfyUI，日志里出现 `Gacha Director v2.1.1: 10 nodes registered` 就是装好了。模型文件按 [ComfyUI 官方教程](https://docs.comfy.org/tutorials/video/minimax/minimax-h3) 准备。
+重启 ComfyUI，日志里出现 `Gacha Director v2.1.2: 10 nodes registered` 就是装好了。模型文件按 [ComfyUI 官方教程](https://docs.comfy.org/tutorials/video/minimax/minimax-h3) 准备。
 
 ## 快速开始
 

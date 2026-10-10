@@ -119,13 +119,26 @@ export function mentionable(d, shotId) {
           ...out.filter((it) => !here(it))];
 }
 
+/** What a piece of material is called in running text. */
+const wordsOf = (it) => String(it.short_name || it.name || "").replace(/_/g, " ").trim();
+
+/** A text for a document that holds only some of this one's material: every other thing
+ *  the text names is said in plain words. `keep` are the ids that go along. */
+export function plainMentions(text, d, keep = []) {
+  const things = material(d);
+  return String(text || "").replace(mentionRe(), (whole, id) => {
+    if (keep.includes(id)) return whole;
+    return things.has(id) ? wordsOf(things.get(id)[2]) : "";
+  });
+}
+
 /** Remove a piece of material. Where the text named it, its name stays as plain words. */
 export function removeMaterial(x, id) {
   const hit = find(x, id);
   if (!hit) return;
   const [key, i, it] = hit;
   x[key].splice(i, 1);
-  const words = String(it.short_name || it.name || "").replace(/_/g, " ").trim();
+  const words = wordsOf(it);
   eachText(x, (text) => text.split(`@{${id}}`).join(words));
   if (key === "subjects") for (const a of x.audio) if (a.subject === id) a.subject = "";
 }
@@ -172,18 +185,23 @@ export function addImage(x, shotId, file, use = "subject", at = 1) {
 /** How many frames of a video a continuation is given to start from, where there is room. */
 const CONTINUE_FRAMES = 22;
 
-/** The anchor that continues a video: its last frames, held at the start of a shot of `x`.
- *  As many of them as normalize leaves a clip there: 22, fewer when the clip ends sooner
- *  than that, so that what is kept is still the end of the video. `info` is what the
- *  server knows of the file ({frames24, frames}); a file it has not probed is taken from
- *  its first frame, and the row's start frame shows it. */
-function clipFor(x, shotId, file, info, withAudio) {
+/** Which frames of a video a continuation takes: its last ones, `want` of them, or as many
+ *  as normalize leaves a clip that is held at `frame` (fewer when the clip ends sooner than
+ *  that), so that what is kept is still the end of the video. `info` is what the server
+ *  knows of the file ({frames24, frames}); a file it has not probed is taken from its
+ *  first frame, and the row's start frame shows it. */
+function tailOf(x, frame, info, want = CONTINUE_FRAMES) {
   const frames = info ? (info.frames24 || info.frames || 0) : 0;
+  const room = frame >= 0 && x.derived ? x.derived.frame_count - frame : want;
+  const length = guideClipLength(Math.min(want, room));
+  return { clip_start: Math.max(0, frames - length), clip_length: length };
+}
+
+/** The anchor that continues a video: its last frames, held at the start of a shot of `x`. */
+function clipFor(x, shotId, file, info, withAudio) {
   const shot = x.prompt.shots.find((s) => s.id === shotId);
-  const room = shot && shot.start >= 0 && x.derived ? x.derived.frame_count - shot.start : CONTINUE_FRAMES;
-  const length = guideClipLength(Math.min(CONTINUE_FRAMES, room));
-  return { kind: "clip", file, at: "first", offset: 0,
-           clip_start: Math.max(0, frames - length), clip_length: length, with_audio: !!withAudio };
+  return { kind: "clip", file, at: "first", offset: 0, ...tailOf(x, shot ? shot.start : -1, info),
+           with_audio: !!withAudio };
 }
 
 export function addVideo(x, shotId, file, use = "motion", info = null) {
@@ -195,6 +213,19 @@ export function addVideo(x, shotId, file, use = "motion", info = null) {
   const id = freeId(x, "anchors");
   x.anchors.push({ id, shot: shotId, ...clipFor(x, shotId, file, info, info && info.audio) });
   return id;
+}
+
+/** Another file for something already in the clip. A video a shot carries on from is
+ *  taken from the end of the new file, at the length it had and where it sits: where the
+ *  old one was taken from says nothing about this one, and may lie past its last frame. */
+export function setFile(x, id, file, info = null) {
+  const hit = find(x, id);
+  if (!hit || !file) return;
+  const it = hit[2];
+  if (hit[0] === "anchors" && it.kind === "clip") {
+    Object.assign(it, tailOf(x, it.frame, info, it.clip_length || CONTINUE_FRAMES));
+  }
+  it.file = file;
 }
 
 export function addAudio(x, shotId, file, use = "sound") {
@@ -243,6 +274,65 @@ export function setUse(x, id, use, at = 1, info = null) {
   if (key === "anchors") return move("audio", { file: it.file, subject: "" });
   if (use === "sound") it.subject = "";
   return id;                                  // "voice": the caller sets whose
+}
+
+// ---------------------------------------------------------------- prompts and shots
+/** Is this line something somebody says ("@name says quietly: ...")? The planner reads such
+ *  a line as a line: run into other text, it is narration. */
+export const spokenLine = (line) => /^\s*@[^\s:]+[^:\n]*:\s*\S/.test(line || "");
+
+const SENTENCE = /[^.!?。！？]+[.!?。！？]+["'”’)\]]*|[^.!?。！？]+$/g;
+
+/**
+ * Spread the shots' text over the shots again: sentences in order, each shot taking a share
+ * of the text proportional to its length in frames. The whole-clip description written
+ * before the cuts existed is the normal case, and this is how it gets split without
+ * retyping it. A spoken line moves as a whole and stays a line of its own. Every shot's
+ * text is joined first, so doing it twice is stable. Returns one text per shot.
+ */
+export function spreadText(shots) {
+  const units = [];                    // [text, a spoken line?]
+  let prose = [];
+  const flush = () => {
+    const text = prose.join(" ").replace(/\s+/g, " ").trim();
+    prose = [];
+    // (text in which no sentence is found, "..." say, is one unit: nothing typed is dropped)
+    for (const u of (text.match(SENTENCE) || (text ? [text] : []))) if (u.trim()) units.push([u.trim(), false]);
+  };
+  for (const s of shots) {
+    for (const line of String(s.text || "").split("\n")) {
+      if (spokenLine(line)) { flush(); units.push([line.trim(), true]); } else prose.push(line);
+    }
+  }
+  flush();
+  if (!units.length) return shots.map((s) => s.text || "");
+  const chars = units.reduce((a, u) => a + u[0].length, 0) || 1;
+  const total = shots.reduce((a, s) => a + s.length, 0) || 1;
+  // char-space boundaries proportional to frames, then each unit goes where its middle
+  // falls: order is preserved by construction
+  const bounds = [];
+  let acc = 0;
+  for (const s of shots) { acc += s.length; bounds.push((chars * acc) / total); }
+  const buckets = shots.map(() => []);
+  let pos = 0;
+  for (const u of units) {
+    const mid = pos + u[0].length / 2;
+    let i = bounds.findIndex((b) => mid < b);
+    if (i < 0) i = shots.length - 1;
+    buckets[i].push(u);
+    pos += u[0].length + 1;
+  }
+  // A shot left empty while a neighbour holds several reads as a bug, so pull one across,
+  // from the left neighbour's tail or the right one's head, order intact.
+  for (let pass = 0; pass < shots.length; pass++) {
+    for (let i = 0; i < buckets.length; i++) {
+      if (buckets[i].length) continue;
+      if (i > 0 && buckets[i - 1].length > 1) buckets[i].push(buckets[i - 1].pop());
+      else if (i < buckets.length - 1 && buckets[i + 1].length > 1) buckets[i].push(buckets[i + 1].shift());
+    }
+  }
+  return buckets.map((list) => list.reduce(
+    (text, [u, own], k) => text + (k === 0 ? "" : own || list[k - 1][1] ? "\n" : " ") + u, ""));
 }
 
 // ---------------------------------------------------------------- shots change

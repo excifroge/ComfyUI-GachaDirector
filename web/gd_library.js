@@ -53,6 +53,17 @@ export function normalizeIndex(raw) {
   return { version: 1, folders, items };
 }
 
+/** The stored folders with what was changed while they could not be read: every stored
+ *  folder is kept, a folder made meanwhile is added, and where something was filed
+ *  meanwhile is where it is. */
+export function mergeIndex(stored, made) {
+  const a = normalizeIndex(stored);
+  const b = normalizeIndex(made);
+  const have = new Set(a.folders.map((f) => f.id));
+  return normalizeIndex({ folders: [...a.folders, ...b.folders.filter((f) => !have.has(f.id))],
+                          items: { ...a.items, ...b.items } });
+}
+
 function readGeometry() {
   try { return JSON.parse(localStorage.getItem(GEOMETRY_KEY) || "null") || null; } catch (e) { return null; }
 }
@@ -257,13 +268,22 @@ export function createLibrary(opts) {
   async function bring(files) {
     const mine = [...files].filter((f) => fileKind(f));
     if (!mine.length || !importFiles) return;
+    // An upload takes a while, and the window may be closed, or closed and opened for
+    // another place, before it is done: what is done with the files afterwards is for the
+    // window and the place they were brought to, or for nobody (they are imported either way).
+    const here = parts;
+    const place = target;
     parts.state.className = "gd-lib-state";
     parts.state.textContent = t("lib.importing", mine.length);
     try {
       const got = await importFiles(mine);
+      if (parts !== here) return;
       parts.state.textContent = "";
       // one file of a kind the place asked for is what was wanted: use it at once
-      if (target && got.length === 1 && target.kinds.includes(got[0].kind)) { choose(got[0].name); return; }
+      if (target && target === place && got.length === 1 && target.kinds.includes(got[0].kind)) {
+        choose(got[0].name);
+        return;
+      }
       root = "input";
       if (folder && folder !== "-" && (idx().folders.find((x) => x.id === folder) || {}).root === "input") {
         file(got.map((g) => g.name), folder);
@@ -272,6 +292,7 @@ export function createLibrary(opts) {
       for (const g of got) selected.add(g.name);
       paint();
     } catch (e) {
+      if (parts !== here) return;
       parts.state.className = "gd-lib-state bad";
       parts.state.textContent = t("lib.importFailed", String((e && e.message) || e));
     }

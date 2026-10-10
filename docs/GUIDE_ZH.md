@@ -178,11 +178,12 @@
 - **LoRA、加速 LoRA**：`LoraLoaderModelOnly`。
 - **Fun ControlNet Union**：`ModelPatchLoader` + `Apply MiniMax H3 Fun ControlNet`，输出接到 `model`（用 `Draft` 时 `model_turbo` 也要接）。控制视频用 24 fps，从片段第一帧开始。
 - **FastH3**：`UNETLoader` → `ModelAttentionBackend` → `BlockSparseAttention`，接到 `model`；预设里步数设 8，调度偏移设 10 / 3。
+- **提速**：`ModelAttentionBackend`（Model Attention Backend，实验性），后端选 `comfy kitchen attention`。可加快生成，画面变化通常很小。int8-convrot 模型目前不能用这个后端，会报错。用 `Draft` 时 `model_turbo` 也要接。
 
 ## 已知限制
 
 - 每个节点制作一段视频，常用长度 5–15 秒；更长的内容用续写衔接。
-- 参考素材上限（各镜头和共通素材合计）：9 张图、3 段视频、3 段音频，共 12 个文件；参考视频总长不超过 15 秒。
+- 参考素材上限（各镜头和共通素材合计）：9 张图、3 段视频、3 段音频，共 12 个文件；参考视频总长不超过 15 秒。声音参考每段 2–15 秒，超过 15 秒的只取前 15 秒。
 - 每条候选都按完整片段生成；已有视频的局部修改用**局部重画**。
 - 切镜的时间由模型决定，可能有偏移；长镜头内各段发生的具体时间无法指定。
 - 叠化、甩镜或相似的画面可能影响切点识别，合成后检查接合位置和实际片长。

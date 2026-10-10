@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-gachadirector"
 description = "Gacha Director: a director console for MiniMax H3. Roll a batch of takes, pick one for every shot and join the picks into the final clip. One node covers text, image, first/last frame and reference to video, video editing and continuation, with run presets that remember what they cost."
-version = "2.1.1"
+version = "2.1.2"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 # No pip dependencies: video is decoded with PyAV and images are written with Pillow, both

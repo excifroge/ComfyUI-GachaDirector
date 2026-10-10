@@ -29,16 +29,21 @@ def _input_dir() -> str:
 
 
 # Video facts the editor should not ask the user for: frame count, rate, size. Probed
-# with PyAV (a ComfyUI core dependency) and cached by path+mtime, so a media listing costs
-# one open per NEW file, not one per file per listing.
-_PROBE_CACHE: dict = {}
+# with PyAV (a ComfyUI core dependency) and kept per path for as long as the file has the
+# same time and size, so a media listing costs one open per NEW file, not one per file per
+# listing. (The size is part of it: a copy that keeps the time of what it replaces is
+# another file.)
+_PROBE_CACHE: dict = {}          # path -> ((mtime, size), facts)
 
 
 def _probe_video(path: str, mtime: float) -> dict:
-    key = (path, mtime)
-    hit = _PROBE_CACHE.get(key)
-    if hit is not None:
-        return hit
+    try:
+        stamp = (mtime, os.path.getsize(path))
+    except OSError:
+        stamp = (mtime, -1)
+    hit = _PROBE_CACHE.get(path)
+    if hit is not None and hit[0] == stamp:
+        return hit[1]
     info: dict = {}
     try:
         import av  # type: ignore
@@ -54,18 +59,51 @@ def _probe_video(path: str, mtime: float) -> dict:
                     frames = int(round(float(stream.duration * stream.time_base) * fps))
                 w = int(stream.width or 0)
                 h = int(stream.height or 0)
+                # the size it is shown at: a clip stored lying on its side says so in its
+                # first frame (what a phone records), and is loaded upright
+                try:
+                    from .gd_frames import quarter_turns
+                    first = next(container.decode(stream), None)
+                    if first is not None and quarter_turns(first) % 2:
+                        w, h = h, w
+                except Exception:  # noqa: BLE001 - a clip that cannot be decoded is as it says
+                    pass
                 if frames > 0:
                     # frames24: how many frames the clip yields once conformed to the
-                    # model's 24 fps, which is what every frame number in a document counts
-                    seconds = frames / fps if fps > 0 else 0.0
-                    frames24 = frames if abs(fps - 24.0) / 24.0 <= 0.005 or fps <= 0 else (
-                        int(seconds * 24.0 + 1e-6))
+                    # model's 24 fps, which is what every frame number in a document counts.
+                    # The loader's own count, so that the last frame it is asked for is there.
+                    from .gd_frames import _even, frames_at_24
                     info = {"frames": frames, "fps": round(fps, 3), "width": w, "height": h,
-                            "frames24": max(1, frames24),
+                            "frames24": max(1, frames_at_24(frames, fps, _even(stream))),
                             "audio": bool(container.streams.audio)}
     except Exception:  # noqa: BLE001 - a file the decoder cannot open is simply unprobed
         info = {}
-    _PROBE_CACHE[key] = info
+    _PROBE_CACHE[path] = (stamp, info)
+    return info
+
+
+def _probe_sound(path: str, mtime: float) -> dict:
+    """A sound file's length: {"seconds", "audio": True}, kept like a video's facts."""
+    try:
+        stamp = (mtime, os.path.getsize(path))
+    except OSError:
+        stamp = (mtime, -1)
+    hit = _PROBE_CACHE.get(path)
+    if hit is not None and hit[0] == stamp:
+        return hit[1]
+    info: dict = {}
+    try:
+        import av  # type: ignore
+        with av.open(path) as container:
+            if container.streams.audio:
+                stream = container.streams.audio[0]
+                seconds = (float(stream.duration * stream.time_base) if stream.duration and stream.time_base
+                           else float(container.duration or 0) / 1e6)
+                if seconds > 0:
+                    info = {"seconds": round(seconds, 3), "audio": True}
+    except Exception:  # noqa: BLE001 - a file the decoder cannot open is simply unprobed
+        info = {}
+    _PROBE_CACHE[path] = (stamp, info)
     return info
 
 
@@ -164,6 +202,8 @@ def probe(name: str) -> dict:
                         "width": int(im.width), "height": int(im.height), "audio": False}
         except Exception:  # noqa: BLE001
             return {}
+    if full.lower().endswith(AUDIO_EXT):
+        return _probe_sound(full, os.path.getmtime(full))
     return _probe_video(full, os.path.getmtime(full))
 
 

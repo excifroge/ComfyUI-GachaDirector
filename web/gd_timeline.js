@@ -256,10 +256,19 @@ export function createTimeline(host) {
       const shots = d.prompt.shots;
       // interior boundaries only: shot 0's left edge and the last shot's right edge are
       // the clip itself and cannot move
+      // The nearest edge within reach is the one taken hold of. An edge reaches a third
+      // of the way into a shot at most: a shot of a few frames is narrower than two
+      // handles, and would otherwise be all left edge, with no right edge to drag and no
+      // middle to click.
+      const wide = (s) => frameToX(s.start + s.length, w) - frameToX(s.start, w);
+      let edge = 0, near = Infinity;
       for (let i = 1; i < shots.length; i++) {
         const bx = frameToX(shots[i].start, w);
-        if (Math.abs(x - bx) <= HANDLE_PX) return { type: "shot-edge", index: i };
+        const dist = Math.abs(x - bx);
+        const reach = Math.min(HANDLE_PX, wide(x < bx ? shots[i - 1] : shots[i]) / 3);
+        if (dist <= reach && dist < near) { edge = i; near = dist; }
       }
+      if (edge) return { type: "shot-edge", index: edge };
       for (let i = shots.length - 1; i >= 0; i--) {
         const s = shots[i];
         const x0 = frameToX(s.start, w), x1 = frameToX(s.start + s.length, w);

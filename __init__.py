@@ -7,7 +7,7 @@ See README.md, NOTICE and LICENSE (GPL-3.0).
 
 import logging
 
-__version__ = "2.1.1"
+__version__ = "2.1.2"
 
 _log = logging.getLogger("GachaDirector")
 

@@ -40,8 +40,10 @@ export function createHistory(io) {
     const entry = snap(label);
     const cur = st.entries[st.index];
     if (cur && JSON.stringify(cur.state) === JSON.stringify(entry.state)) return;
-    if (cur && cur.label === entry.label && entry.at - cur.at < COALESCE_MS) {
-      // same kind of edit, still in flight: replace rather than stack
+    // same kind of edit, still in flight: replace rather than stack. Only at the end of
+    // the stack: after an undo, the entries ahead are what the new edit leaves behind.
+    if (cur && st.index === st.entries.length - 1 && cur.label === entry.label
+        && entry.at - cur.at < COALESCE_MS) {
       st.entries[st.index] = entry;
       return;
     }

@@ -14,17 +14,29 @@ Frame rate
 MiniMax H3 is a 24 fps model. A source at any other rate is conformed by picking, for every
 24 fps output frame, the source frame nearest in time — no blending, so nothing is smeared.
 ``start`` and ``length`` always count 24 fps frames. A source already at 24 fps is walked
-frame by frame and comes through untouched.
+frame by frame and comes through untouched, provided its frames come at even intervals:
+a clip that only averages 24 a second (a phone or a screen recorder writes such) is
+placed by its time stamps like any other. A clip lasts until its last frame has been shown
+for its own interval, so one second at 12 fps is 24 frames, the last of them twice;
+``frames_at_24`` is that count, and what the probe reports.
 
 Two resize modes
 ----------------
 * ``resize="canvas"``: decode at the file's own size, then lanczos + centre crop to the
   target. Used for the source clip and for spliced takes, which must fill the canvas.
+  The frames are brought to the target a few at a time while the file is decoded
+  (``AT_ONCE``): the whole clip at its own size would be 50 GB for ten seconds of 4K.
 * ``resize="decode"``: the decoder scales to exactly ``width`` x ``height`` (the caller
   passes an aspect-preserving size). Used for reference videos.
 
 A source that ends early holds its last frame rather than returning a short batch — a
 short batch would change the length the sampler works on.
+
+Rotation
+--------
+A phone stores a portrait clip lying on its side and says so in the file (a display
+matrix). Players and ComfyUI's own loader turn the frames upright; so does this one, by
+the same rule (``quarter_turns``), and sizes are those of the upright frame.
 
 Decode contract: RGB, float32, 0..1, shaped (N, H, W, 3).
 """
@@ -83,12 +95,46 @@ def resolve(name: str, source: str = "input") -> str:
 #: The model's frame rate. Sources at another rate are conformed to it.
 MODEL_FPS = 24.0
 
+#: How many decoded frames are held at the file's own size before they are made tensors of
+#: the size asked for.
+AT_ONCE = 8
+
+
+def quarter_turns(frame) -> int:
+    """How many quarter turns bring a decoded frame upright (``numpy.rot90``'s ``k``): what
+    the file's rotation says, read the way ComfyUI's own video loader reads it."""
+    try:
+        return int(round(frame.rotation // 90)) % 4 if frame.rotation else 0
+    except Exception:  # noqa: BLE001 - a frame that does not say is upright
+        return 0
+
 
 def _stream_fps(stream) -> float:
     try:
         return float(stream.average_rate or stream.guessed_rate or 0.0)
     except Exception:  # noqa: BLE001 - a stream with no rate is treated as already conformed
         return 0.0
+
+
+def _even(stream) -> bool:
+    """Do the frames come at even intervals? The rate a file states is an average and
+    says nothing of that. The rate its time stamps need (the base rate) does: where the two
+    differ, the frames are not evenly spaced."""
+    try:
+        avg, base = float(stream.average_rate or 0.0), float(stream.base_rate or 0.0)
+    except Exception:  # noqa: BLE001 - a stream that does not say is taken at its word
+        return True
+    return not (avg > 0 and base > 0 and abs(base - avg) / avg > 0.005)
+
+
+def frames_at_24(frames: int, fps: float, even: bool = True) -> int:
+    """How many frames ``load_frames`` gives of a clip of ``frames`` frames at ``fps``."""
+    import math  # noqa: PLC0415
+    if frames <= 0:
+        return 0
+    if fps <= 0 or (even and abs(fps - MODEL_FPS) / MODEL_FPS <= 0.005):
+        return int(frames)
+    return max(1, math.ceil(frames / fps * MODEL_FPS - 1e-6))
 
 
 def load_frames(name: str, source: str = "input", start: int = 0, length: int = 0,
@@ -111,11 +157,40 @@ def load_frames(name: str, source: str = "input", start: int = 0, length: int = 
     in_decoder = resize == "decode" and width > 0 and height > 0
 
     def to_array(frame):
+        turns = quarter_turns(frame)
         if in_decoder:
-            return frame.reformat(width=width, height=height, format="rgb24").to_ndarray()
-        return frame.reformat(format="rgb24").to_ndarray()
+            # (the size asked for is the upright one: a frame lying on its side is scaled
+            # to that size lying on its side, then turned)
+            w, h = (height, width) if turns % 2 else (width, height)
+            img = frame.reformat(width=w, height=h, format="rgb24").to_ndarray()
+        else:
+            img = frame.reformat(format="rgb24").to_ndarray()
+        return np.rot90(img, k=turns, axes=(0, 1)) if turns else img
 
-    frames = []
+    import torch  # noqa: PLC0415 - only where a tensor is made
+
+    fit = not in_decoder and width > 0 and height > 0
+    done = []                    # tensors of the size asked for
+    waiting = []                 # decoded frames, at the file's own size
+    kept = 0
+
+    def settle():
+        if not waiting:
+            return
+        batch = torch.from_numpy(np.asarray(waiting, dtype=np.float32) / 255.0)
+        waiting.clear()
+        if fit and (int(batch.shape[2]), int(batch.shape[1])) != (width, height):
+            from comfy.utils import common_upscale  # noqa: PLC0415 - ComfyUI runtime only
+            batch = common_upscale(batch.movedim(-1, 1), width, height, "lanczos", "center").movedim(1, -1)
+        done.append(batch)
+
+    def keep(img):
+        nonlocal kept
+        waiting.append(img)
+        kept += 1
+        if len(waiting) >= AT_ONCE:
+            settle()
+
     seen = 0
     with av.open(path) as container:
         if not container.streams.video:
@@ -123,13 +198,13 @@ def load_frames(name: str, source: str = "input", start: int = 0, length: int = 
         stream = container.streams.video[0]
         stream.thread_type = "AUTO"
         src_fps = _stream_fps(stream)
-        conform = fps > 0 and src_fps > 0 and abs(src_fps - fps) / fps > 0.005
+        conform = fps > 0 and src_fps > 0 and (abs(src_fps - fps) / fps > 0.005 or not _even(stream))
         if not conform:
             # Walk from the start rather than seeking: a keyframe seek lands on a frame
             # the caller did not ask for, and clips this short make the walk free.
             for frame in container.decode(stream):
                 if seen >= start and (want_end is None or seen < want_end):
-                    frames.append(to_array(frame))
+                    keep(to_array(frame))
                 seen += 1
                 if want_end is not None and seen >= want_end:
                     break
@@ -150,31 +225,33 @@ def load_frames(name: str, source: str = "input", start: int = 0, length: int = 
                     target = k / fps
                     if t < target:
                         break                 # need a later frame for this slot
+                    # (a moment exactly between two frames takes the earlier one, every
+                    # time: left to rounding, a 12 fps clip came out as 1, 2, 2, 3 of a kind)
                     pick = frame
-                    if prev is not None and abs(prev[0] - target) < abs(t - target):
+                    if prev is not None and abs(prev[0] - target) <= abs(t - target) + 1e-6:
                         pick = prev[1]
-                    frames.append(to_array(pick))
+                    keep(to_array(pick))
                     k += 1
                 prev = (t, frame)
                 if want_end is not None and k >= want_end:
                     break
+            # the last frame is shown for an interval of its own: the clip ends after it
+            if prev is not None:
+                end = prev[0] + 1.0 / src_fps
+                while (want_end is None or k < want_end) and k / fps < end - 1e-6:
+                    keep(to_array(prev[1]))
+                    k += 1
 
-    if not frames:
+    settle()
+    if not kept:
         raise ValueError(
             "Gacha Director: %s gave no frames for start=%d length=%s (the file has %d)"
             % (name, start, length or "all", seen))
-    if length > 0 and len(frames) < length:
+    out = torch.cat(done) if len(done) > 1 else done[0]
+    if length > 0 and kept < length:
         log.warning("Gacha Director: %s only had %d of the %d frames asked for from %d — "
-                    "holding its last frame", name, len(frames), length, start)
-        frames.extend([frames[-1]] * (length - len(frames)))
-    arr = np.asarray(frames, dtype=np.float32) / 255.0
-    import torch  # noqa: PLC0415 - only where a tensor is made
-    out = torch.from_numpy(arr)
-
-    have = (int(out.shape[2]), int(out.shape[1]))
-    if not in_decoder and width > 0 and height > 0 and have != (width, height):
-        from comfy.utils import common_upscale  # noqa: PLC0415 - ComfyUI runtime only
-        out = common_upscale(out.movedim(-1, 1), width, height, "lanczos", "center").movedim(1, -1)
+                    "holding its last frame", name, kept, length, start)
+        out = torch.cat([out, out[-1:].expand(length - kept, -1, -1, -1)])
     return out
 
 

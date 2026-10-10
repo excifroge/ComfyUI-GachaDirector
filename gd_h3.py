@@ -106,7 +106,12 @@ def emit(g, doc, p, *, clip, vae, audio_vae, width, height, probe_size,
                 refs["ref_video_audios.ref_video_audio_%d" % i] = track(
                     g, item["file"], item["start"], item["length"])
         for i, item in enumerate(compile_.ref_audio(p)):
-            refs["ref_audios.ref_audio_%d" % i] = g.node("LoadAudio", audio=item["file"]).out(0)
+            sound = g.node("LoadAudio", audio=item["file"]).out(0)
+            if item["first"] > 0:
+                # longer than the model takes: its first seconds (gd_compile.build_plan says so)
+                sound = g.node("TrimAudioDuration", audio=sound, start_index=0.0,
+                               duration=float(item["first"])).out(0)
+            refs["ref_audios.ref_audio_%d" % i] = sound
         cs = g.node("MiniMaxH3ReferenceToVideo", clip=clip, vae=vae, audio_vae=audio_vae,
                     prompt=p["prompt"], width=int(width), height=int(height),
                     length=fc, ref_image_size=ref_image_size, **refs)

@@ -196,12 +196,28 @@ function modelFileBehind(node, name) {
 
 function makeHost(node, launcherHost) {
   const guards = new Map();          // event name -> (the editor's listener -> its guarded version)
+  // queueWithOverrides puts one-off values into this node's widgets for as long as the graph
+  // takes to serialize. `held` has what the canvas holds meanwhile, and the panel reads and
+  // writes that: an edit, a pick or a timing that lands in that moment is made on the
+  // clip's own state, not on the one-off values, and is there when they are taken out.
+  const held = new Map();            // widget -> its value, while a one-off value sits in it
+  const valueOf = (w) => (held.has(w) ? held.get(w) : w.value);
+  const setValue = (w, value) => { if (held.has(w)) held.set(w, value); else w.value = value; };
+  const readJson = (name) => {
+    const w = widget(node, name);
+    try {
+      const v = JSON.parse((w && valueOf(w)) || "{}");
+      return v && typeof v === "object" ? v : {};
+    } catch (e) {
+      return {};
+    }
+  };
   const writeJson = (name, value) => {
     const w = widget(node, name);
     if (!w) return;
     const text = JSON.stringify(value);
-    if (w.value === text) return;
-    w.value = text;
+    if (valueOf(w) === text) return;
+    setValue(w, text);
     if (node.graph) noteChange();
   };
   return {
@@ -221,19 +237,22 @@ function makeHost(node, launcherHost) {
         if (mine && mine.has(fn)) { bus.off(name, mine.get(fn)); mine.delete(fn); }
       },
     },
-    readDocument: () => readJsonWidget(node, DOC_WIDGET),
+    readDocument: () => readJson(DOC_WIDGET),
     writeDocument: (d) => writeJson(DOC_WIDGET, d),
-    rawDocument: () => String(widget(node, DOC_WIDGET)?.value || ""),
-    readPost: () => readJsonWidget(node, POST_WIDGET),
+    rawDocument: () => {
+      const w = widget(node, DOC_WIDGET);
+      return String((w && valueOf(w)) || "");
+    },
+    readPost: () => readJson(POST_WIDGET),
     writePost: (c) => writeJson(POST_WIDGET, c),
-    readPresets: () => readJsonWidget(node, PRESETS_WIDGET),
+    readPresets: () => readJson(PRESETS_WIDGET),
     writePresets: (s) => {
       writeJson(PRESETS_WIDGET, s);
       // Keep the node's own selector in step with the store's active preset.
       const sel = widget(node, "preset");
-      if (sel && s && s.active) sel.value = s.active;
+      if (sel && s && s.active) setValue(sel, s.active);
     },
-    readTakes: () => readJsonWidget(node, TAKES_WIDGET),
+    readTakes: () => readJson(TAKES_WIDGET),
     writeTakes: (s) => writeJson(TAKES_WIDGET, s),
     hasTakesWidget: () => !!widget(node, TAKES_WIDGET),
     nodeId: () => execId(node),
@@ -241,11 +260,12 @@ function makeHost(node, launcherHost) {
     clientId: () => api.clientId || "",   // what ComfyUI records with a prompt this page queues
     getWidget: (name) => {
       const w = widget(node, name);
-      return w ? w.value : undefined;
+      return w ? valueOf(w) : undefined;
     },
     setWidget: (name, value) => {
       const w = widget(node, name);
       if (!w) return;
+      if (held.has(w)) { held.set(w, value); return; }   // it reaches the widget with the rest
       w.value = value;
       if (w.callback) { try { w.callback(value); } catch (e) { /* widget said no */ } }
       if (node.graph) { node.graph.setDirtyCanvas(true, true); noteChange(); }
@@ -272,7 +292,8 @@ function makeHost(node, launcherHost) {
      * The overrides go into the widgets for the moment the graph is serialized and are
      * taken out again right after. That way the prompt and the workflow saved inside the
      * output file describe the same run: opening a take's file restores that take, not
-     * whatever the canvas happened to hold when the batch was queued.
+     * whatever the canvas happened to hold when the batch was queued. What the panel reads
+     * and writes in that moment is the canvas' own state (`held`), which is what goes back.
      */
     queueWithOverrides: async (overrides) => {
       if (!node.graph) {               // a node ComfyUI dropped: its id may now be another node's
@@ -282,22 +303,26 @@ function makeHost(node, launcherHost) {
       }
       const names = { timeline: "gd_timeline", post: "gd_post", presets: "gd_presets",
                       preset: "preset", seed: "seed" };
-      const saved = [];
+      if (held.size) {                 // one at a time: the second would hold the first's one-off values
+        const err = new Error("GachaDirector node is being queued already");
+        err.code = "busy";
+        throw err;
+      }
       let p = null;
       try {
         for (const [key, name] of Object.entries(names)) {
           if (overrides[key] === undefined) continue;
           const w = widget(node, name);
           if (!w) continue;
-          const temp = typeof overrides[key] === "object" ? JSON.stringify(overrides[key]) : overrides[key];
-          saved.push([w, w.value, temp]);
-          w.value = temp;
+          held.set(w, w.value);
+          w.value = typeof overrides[key] === "object" ? JSON.stringify(overrides[key]) : overrides[key];
         }
         p = await app.graphToPrompt();
       } finally {
-        // put back only what is still ours: if something wrote the widget while the graph
-        // was being serialized (a timing landing, an edit), that write stands
-        for (const [w, value, temp] of saved) if (w.value === temp) w.value = value;
+        for (const [w, value] of held) w.value = value;
+        held.clear();
+        // a look ComfyUI took in between (noteChange) would have seen the one-off values
+        if (node.graph) noteChange();
       }
       const id = execId(node);
       if (!p.output[id]) {

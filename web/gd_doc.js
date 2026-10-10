@@ -720,11 +720,12 @@ function normShots(shots, fc, moved = null) {
     const s = raw[i];
     const left = fc - used;
     if (left < MIN_SHOT) {
-      // shots that no longer fit give their text to the last one that does
+      // shots that no longer fit give their text to the last one that does, each on lines
+      // of its own (a spoken line run into another would be read as part of it)
       if (out.length) {
         const rest = raw.slice(i).map((x) => pyText(x.text).trim());
         const last = out[out.length - 1];
-        last.text = [last.text.trim(), ...rest].filter((t) => t).join(" ");
+        last.text = [last.text.trim(), ...rest].filter((t) => t).join("\n");
         if (moved) for (const gone of ids.slice(i)) moved.set(gone, last.id);
       }
       break;

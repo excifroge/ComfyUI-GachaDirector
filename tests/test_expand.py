@@ -62,6 +62,7 @@ CORE = {
 OURS = set(gdpkg.NODE_CLASS_MAPPINGS) | {"GachaDirectorPreview"}
 
 D.internal.total_vram_bytes = lambda: 48 * 1024 ** 3
+D._known_nodes = lambda: None          # no ComfyUI is running here: nothing to ask
 D._probe = lambda name: {"frames": 240, "frames24": 240, "fps": 24.0, "width": 1280,
                          "height": 720, "audio": True}
 
@@ -353,6 +354,42 @@ try:
 except ValueError as exc:
     if "model_turbo" not in str(exc):
         bad(f"turbo error does not name the input: {exc}")
+# --- a ComfyUI that lacks one of the nodes is told which, and what to do
+D._known_nodes = lambda: (CORE | OURS) - {"MiniMaxH3AddGuide"}
+try:
+    expand(cases["keyframes"])
+    bad("a graph with a node this ComfyUI lacks was handed over")
+except ValueError as exc:
+    check("a missing core node is named, with what to do",
+          ("MiniMaxH3AddGuide" in str(exc), "update ComfyUI" in str(exc)), (True, True))
+check("a graph that needs none of the missing nodes still runs",
+      "expand" in expand(cases["t2v"]), True)
+D._known_nodes = lambda: CORE | OURS
+check("and every graph does where nothing is missing", "expand" in expand(cases["keyframes"]), True)
+D._known_nodes = lambda: None
+
+# --- a sound reference longer than the model takes is cut to its first 15 seconds
+was = D._probe
+D._probe = lambda name: {"seconds": 110.2, "audio": True} if str(name).endswith(".wav") else was(name)
+g = expand(cases["r2v_av"])["expand"]
+cut = [n["inputs"] for n in g.values() if n["class_type"] == "TrimAudioDuration"
+       and g[n["inputs"]["audio"][0]]["class_type"] == "LoadAudio"
+       and str(g[n["inputs"]["audio"][0]]["inputs"]["audio"]).endswith(".wav")]
+check("a long sound reference goes through a trim to 15 seconds",
+      [(c["start_index"], c["duration"]) for c in cut], [(0.0, 15.0)])
+wired = only(g, "MiniMaxH3ReferenceToVideo")["inputs"]["ref_audios.ref_audio_0"][0]
+check("and what the model is handed is the trimmed sound, not the file",
+      (g[wired]["class_type"], g[g[wired]["inputs"]["audio"][0]]["class_type"]),
+      ("TrimAudioDuration", "LoadAudio"))
+D._probe = was
+
+# (a clip that is only cut together samples nothing: it must not ask for a model at all)
+try:
+    res = expand(cases["composite_cuts"], {"model": "turbo"})["result"]
+    check("cuts only on a turbo preset, nothing wired to model_turbo: the model as it came in",
+          res[7], "M")
+except Exception as exc:  # noqa: BLE001
+    bad(f"a clip that is only cut together asked for the turbo model: {exc}")
 g = expand(cases["t2v"], {"model": "turbo"}, model_turbo="MT")["expand"]
 check("turbo: the turbo model is the one patched",
       only(g, "MiniMaxH3SigmaShift")["inputs"].get("model"), "MT")

@@ -1501,6 +1501,10 @@ def _take_cases():
     case("takes", "normalize", {"composite": {"status": "done", "file": "c.mp4", "frames": 240,
                                               "note": "cut at 61: a cuts at 63"}})
     case("takes", "normalize", {"composite": {"frames": "x", "note": 7}})
+    case("takes", "normalize", {"composite": {"status": "done", "file": "c.mp4", "starts": "0,58,120"}})
+    case("takes", "normalize", {"composite": {"starts": " 0, 58 ,x,-3,12.5,１２,120~,,9"}})
+    case("takes", "normalize", {"composite": {"starts": [0, 58]}})
+    case("takes", "normalize", {"composite": {"starts": None}})
     case("takes", "normalize", {"composite": {"frames": -3, "note": None}})
 
 

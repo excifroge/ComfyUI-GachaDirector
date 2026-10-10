@@ -32,7 +32,8 @@ export function emptyTakes() {
     picks: {},          // {"<segment index>": take id}
     // `key` names the picks the composite was rendered from (planKey), so a composite of
     // earlier picks is never shown as the final clip of the current ones.
-    composite: { prompt_id: "", file: "", status: "", at: 0, seed: 0, key: "", frames: 0, note: "" },
+    composite: { prompt_id: "", file: "", status: "", at: 0, seed: 0, key: "", frames: 0, note: "",
+                 starts: "" },
     // the final clip with its face refined: one more run over `of`
     refine: { prompt_id: "", file: "", status: "", at: 0, seed: 0, key: "", of: "" },
   };
@@ -100,6 +101,9 @@ function norm(src) {
     // two takes can cost a few frames) and what was done at each join
     frames: clampi(c.frames, 0, 1e6, 0),
     note: pyText(c.note),
+    // and the frame each shot starts at in it, "0,58,120": the cuts of a joined clip are
+    // where its takes had theirs, not where the document asks for them
+    starts: pyText(c.starts).split(" ").join("").split(",").filter((x) => /^[0-9]+$/.test(x)).join(","),
   };
   const r = isDict(src.refine) ? src.refine : {};
   const rstatus = pyText(r.status);
@@ -191,6 +195,20 @@ export function planKey(plan) {
  *  since, the panel can say that the take is of another one. */
 export function layoutKey(shots) {
   return shots.map((s, i) => `${requireInt(s.start)}${i && s.join === "continuous" ? "~" : ""}`).join(",");
+}
+
+/**
+ * The frames at which the shots of a finished clip start, as a face refine of that clip is
+ * told them ("58,120~": "~" where the shot goes on from the one before, so no cut is looked
+ * for). A clip that was joined says where its shots start (`composite.starts`); any other
+ * is a take, which has them near where the document asks for them.
+ */
+export function refineCuts(shots, composite, file) {
+  const said = composite && composite.status === "done" && composite.file === file
+    ? pyText(composite.starts).split(",").filter((x) => x).map(Number) : [];
+  const own = said.length === shots.length;
+  return shots.slice(1)
+    .map((s, i) => `${own ? said[i + 1] : s.start}${s.join === "continuous" ? "~" : ""}`).join(",");
 }
 
 /** Frames where the take changes: the joins a composite has to make. */

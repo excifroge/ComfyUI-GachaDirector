@@ -50,7 +50,7 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/excifroge/ComfyUI-GachaDirector
 ```
 
-ComfyUIを再起動し、ログに `Gacha Director v2.1.1: 10 nodes registered` と表示されればインストール完了です。モデルファイルは[ComfyUI公式チュートリアル](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)に従って用意します。
+ComfyUIを再起動し、ログに `Gacha Director v2.1.2: 10 nodes registered` と表示されればインストール完了です。モデルファイルは[ComfyUI公式チュートリアル](https://docs.comfy.org/tutorials/video/minimax/minimax-h3)に従って用意します。
 
 ## クイックスタート
 

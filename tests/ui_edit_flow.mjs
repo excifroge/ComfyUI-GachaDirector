@@ -49,7 +49,8 @@ function check(name, got, want) {
 }
 
 export default async function (page) {
-  await page.open(WF, DOC);
+  // (a face refine asked for in shot 2 only: its number has to move with the cuts)
+  await page.open(WF, DOC, { gd_post: JSON.stringify({ face: { shots: "2" } }) });
   await page.tab(1);
   await page.wait(800);
   // helpers that live in the page
@@ -57,6 +58,8 @@ export default async function (page) {
     window.T = {
       doc: () => JSON.parse(window.app.graph._nodes.find((n) => n.type === "GachaDirector")
         .widgets.find((w) => w.name === "gd_timeline").value),
+      faceShots: () => JSON.parse(window.app.graph._nodes.find((n) => n.type === "GachaDirector")
+        .widgets.find((w) => w.name === "gd_post").value).face.shots,
       box: (key) => document.querySelector(`textarea[data-mbox="${key}"]`),
       card: (i) => document.querySelector(`.gd-seg[data-shot="${i}"]`),
       row: (scope, name) => [...scope.querySelectorAll(".gd-mat-line")]
@@ -161,25 +164,27 @@ export default async function (page) {
     document.querySelector(".gd-cutbar button").click();
     await new Promise((r) => setTimeout(r, 400));
     const b = T.brief();
-    return [b.shots.map((s) => s.slice(0, 2)), b.anchors.map((a) => a.slice(0, 6)), b.subjects];
+    return [b.shots.map((s) => s.slice(0, 2)), b.anchors.map((a) => a.slice(0, 6)), b.subjects, T.faceShots()];
   });
-  check("a cut at frame 60 splits shot 1 and moves nothing", cut, [
+  check("a cut at frame 60 splits shot 1 and moves nothing", cut.slice(0, 3), [
     [["a", 60], ["new", 64], ["b", 119]],
     [["k1", "opening", "image", "a", "first", 0], ["k3", "dog", "image", "b", "offset", 183],
      ["k2", "ending", "image", "b", "last", 242]],
     [["s1", "hero", ""]]]);
+  check("the face refine is still asked for in the same footage, which is shot 3 now", cut[3], "3");
 
   // ---- G: merging it back
   const merged = await page.eval(async () => {
     [...T.card(1).querySelectorAll(".gd-seg-actions button")].pop().click();
     await new Promise((r) => setTimeout(r, 400));
     const b = T.brief();
-    return [b.shots.map((s) => s.slice(0, 2)), b.anchors.map((a) => a.slice(0, 6))];
+    return [b.shots.map((s) => s.slice(0, 2)), b.anchors.map((a) => a.slice(0, 6)), T.faceShots()];
   });
-  check("merging the new shot back restores the two shots", merged, [
+  check("merging the new shot back restores the two shots", merged.slice(0, 2), [
     [["a", 124], ["b", 119]],
     [["k1", "opening", "image", "a", "first", 0], ["k3", "dog", "image", "b", "offset", 183],
      ["k2", "ending", "image", "b", "last", 242]]]);
+  check("and the face refine is asked for in shot 2 again", merged[2], "2");
 
   // ---- G2: montage or long take, on the bar between the two cards
   const joined = await page.eval(async () => {
